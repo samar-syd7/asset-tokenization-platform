@@ -6,7 +6,6 @@ export type BaseConfig = {
   alchemyApiKey: string;
   rpcOverrides?: Record<number, string>;
   walletConnectProjectId: string;
-  burnerWalletMode: "localNetworksOnly" | "allNetworks" | "disabled";
 };
 
 export type AppConfig = BaseConfig;
@@ -34,11 +33,6 @@ const appConfig = {
   // It's recommended to store it in an env variable:
   // .env.local for local testing, and in the Vercel/system env config for live apps.
   walletConnectProjectId: process.env.NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID || "3a8170812b534d0ff9d794f19a901d64",
-  // Configure Burner Wallet visibility:
-  // - "localNetworksOnly": only show when all target networks are local (hardhat/anvil)
-  // - "allNetworks": show on any configured target networks
-  // - "disabled": completely disable
-  burnerWalletMode: "localNetworksOnly",
 } as const satisfies AppConfig;
 
 export default appConfig;

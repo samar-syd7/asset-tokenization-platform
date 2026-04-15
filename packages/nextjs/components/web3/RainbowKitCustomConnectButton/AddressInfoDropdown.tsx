@@ -18,8 +18,6 @@ import { useCopyToClipboard, useOutsideClick } from "~~/hooks/web3";
 import { getTargetNetworks } from "~~/utils/web3/networks";
 import { isENS } from "~~/utils/web3/common";
 
-const BURNER_WALLET_ID = "burnerWallet";
-
 const allowedNetworks = getTargetNetworks();
 
 type AddressInfoDropdownProps = {
@@ -111,14 +109,6 @@ export const AddressInfoDropdown = ({
               >
                 <ArrowsRightLeftIcon className="h-6 w-4 ml-2 sm:ml-0" /> <span>Switch Network</span>
               </button>
-            </li>
-          ) : null}
-          {connector?.id === BURNER_WALLET_ID ? (
-            <li>
-              <label htmlFor="reveal-burner-pk-modal" className="h-8 btn-sm rounded-xl! flex gap-3 py-3 text-error">
-                <EyeIcon className="h-6 w-4 ml-2 sm:ml-0" />
-                <span>Reveal Private Key</span>
-              </label>
             </li>
           ) : null}
           <li className={selectingNetwork ? "hidden" : ""}>
