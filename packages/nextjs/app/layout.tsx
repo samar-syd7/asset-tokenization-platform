@@ -2,6 +2,8 @@ import { Space_Grotesk } from "next/font/google";
 import "@rainbow-me/rainbowkit/styles.css";
 import { Web3Provider } from "~~/components/Web3Provider";
 import { ThemeProvider } from "~~/components/ThemeProvider";
+import { Footer } from "~~/components/Footer";
+import { Header } from "~~/components/Header";
 import "~~/styles/globals.css";
 
 const spaceGrotesk = Space_Grotesk({
@@ -38,7 +40,13 @@ const RootLayout = ({ children }: { children: React.ReactNode }) => {
     <html suppressHydrationWarning className={`${spaceGrotesk.variable} font-space-grotesk`}>
       <body>
         <ThemeProvider enableSystem>
-          <Web3Provider>{children}</Web3Provider>
+          <Web3Provider>
+            <div className="flex min-h-screen flex-col">
+              <Header />
+              <main className="flex-1">{children}</main>
+              <Footer />
+            </div>
+          </Web3Provider>
         </ThemeProvider>
       </body>
     </html>

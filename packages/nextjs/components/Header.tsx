@@ -7,7 +7,7 @@ import { usePathname } from "next/navigation";
 import { Bars3Icon } from "@heroicons/react/24/outline";
 import { ArrowPathIcon, PhotoIcon } from "@heroicons/react/24/outline";
 import { SwitchTheme } from "~~/components/SwitchTheme";
-import { RainbowKitCustomConnectButton } from "~~/components/web3/RainbowKitCustomConnectButton";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useOutsideClick } from "~~/hooks/web3/useOutsideClick";
 import { useTargetNetwork } from "~~/hooks/web3/useTargetNetwork";
 
@@ -106,10 +106,9 @@ export const Header = () => {
           <HeaderMenuLinks />
         </ul>
       </div>
-      <div className="navbar-end grow mr-4">
+      <div className="navbar-end grow mr-4 flex items-center gap-2">
         <SwitchTheme className="scale-90 opacity-80 hover:opacity-100" />
-        <RainbowKitCustomConnectButton />
-        {/* {isLocalNetwork && <FaucetButton />} */}
+        <ConnectButton />
       </div>
     </div>
   );
