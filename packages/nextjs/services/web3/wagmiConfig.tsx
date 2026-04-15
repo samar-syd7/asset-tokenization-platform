@@ -2,10 +2,10 @@ import { wagmiConnectors } from "./wagmiConnectors";
 import { Chain, createClient, fallback, http } from "viem";
 import { hardhat, mainnet } from "viem/chains";
 import { createConfig } from "wagmi";
-import scaffoldConfig, { DEFAULT_ALCHEMY_API_KEY, ScaffoldConfig } from "~~/scaffold.config";
+import appConfig, { DEFAULT_ALCHEMY_API_KEY, AppConfig } from "~~/app.config";
 import { getAlchemyHttpUrl } from "~~/utils/web3/networks";
 
-const { targetNetworks } = scaffoldConfig;
+const { targetNetworks } = appConfig;
 
 // We always want to have mainnet enabled (ENS resolution, ETH price, etc). But only once.
 export const enabledChains = targetNetworks.find((network: Chain) => network.id === 1)
@@ -19,13 +19,13 @@ export const wagmiConfig = createConfig({
   client: ({ chain }) => {
     const mainnetFallbackWithDefaultRPC = [http("https://mainnet.rpc.buidlguidl.com")];
     let rpcFallbacks = [...(chain.id === mainnet.id ? mainnetFallbackWithDefaultRPC : []), http()];
-    const rpcOverrideUrl = (scaffoldConfig.rpcOverrides as ScaffoldConfig["rpcOverrides"])?.[chain.id];
+    const rpcOverrideUrl = (appConfig.rpcOverrides as AppConfig["rpcOverrides"])?.[chain.id];
     if (rpcOverrideUrl) {
       rpcFallbacks = [http(rpcOverrideUrl), ...rpcFallbacks];
     } else {
       const alchemyHttpUrl = getAlchemyHttpUrl(chain.id);
       if (alchemyHttpUrl) {
-        const isUsingDefaultKey = scaffoldConfig.alchemyApiKey === DEFAULT_ALCHEMY_API_KEY;
+        const isUsingDefaultKey = appConfig.alchemyApiKey === DEFAULT_ALCHEMY_API_KEY;
         rpcFallbacks = isUsingDefaultKey
           ? [...rpcFallbacks, http(alchemyHttpUrl)]
           : [http(alchemyHttpUrl), ...rpcFallbacks];
@@ -34,7 +34,7 @@ export const wagmiConfig = createConfig({
     return createClient({
       chain,
       transport: fallback(rpcFallbacks),
-      ...(chain.id !== (hardhat as Chain).id ? { pollingInterval: scaffoldConfig.pollingInterval } : {}),
+      ...(chain.id !== (hardhat as Chain).id ? { pollingInterval: appConfig.pollingInterval } : {}),
     });
   },
 });

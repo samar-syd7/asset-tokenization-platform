@@ -9,11 +9,11 @@ export type BaseConfig = {
   burnerWalletMode: "localNetworksOnly" | "allNetworks" | "disabled";
 };
 
-export type ScaffoldConfig = BaseConfig;
+export type AppConfig = BaseConfig;
 
 export const DEFAULT_ALCHEMY_API_KEY = "cR4WnXePioePZ5fFrnSiR";
 
-const scaffoldConfig = {
+const appConfig = {
   // The networks on which your DApp is live
   targetNetworks: [chains.sepolia],
   // The interval at which your front-end polls the RPC servers for new data (it has no effect if you only target the local network (default is 4000))
@@ -39,6 +39,6 @@ const scaffoldConfig = {
   // - "allNetworks": show on any configured target networks
   // - "disabled": completely disable
   burnerWalletMode: "localNetworksOnly",
-} as const satisfies ScaffoldConfig;
+} as const satisfies AppConfig;
 
-export default scaffoldConfig;
+export default appConfig;

@@ -1,5 +1,5 @@
 import * as chains from "viem/chains";
-import scaffoldConfig from "~~/scaffold.config";
+import appConfig from "~~/app.config";
 
 type ChainAttributes = {
   // color | [lightThemeColor, darkThemeColor]
@@ -10,7 +10,7 @@ type ChainAttributes = {
 };
 
 export type ChainWithAttributes = chains.Chain & Partial<ChainAttributes>;
-export type AllowedChainIds = (typeof scaffoldConfig.targetNetworks)[number]["id"];
+export type AllowedChainIds = (typeof appConfig.targetNetworks)[number]["id"];
 
 // Mapping of chainId to RPC chain name an format followed by alchemy and infura
 export const RPC_CHAIN_NAMES: Record<number, string> = {
@@ -37,8 +37,8 @@ export const RPC_CHAIN_NAMES: Record<number, string> = {
 };
 
 export const getAlchemyHttpUrl = (chainId: number) => {
-  return scaffoldConfig.alchemyApiKey && RPC_CHAIN_NAMES[chainId]
-    ? `https://${RPC_CHAIN_NAMES[chainId]}.g.alchemy.com/v2/${scaffoldConfig.alchemyApiKey}`
+  return appConfig.alchemyApiKey && RPC_CHAIN_NAMES[chainId]
+    ? `https://${RPC_CHAIN_NAMES[chainId]}.g.alchemy.com/v2/${appConfig.alchemyApiKey}`
     : undefined;
 };
 
@@ -135,10 +135,10 @@ export function getBlockExplorerAddressLink(network: chains.Chain, address: stri
 }
 
 /**
- * @returns targetNetworks array containing networks configured in scaffold.config including extra network metadata
+ * @returns targetNetworks array containing networks configured in app.config including extra network metadata
  */
 export function getTargetNetworks(): ChainWithAttributes[] {
-  return scaffoldConfig.targetNetworks.map(targetNetwork => ({
+  return appConfig.targetNetworks.map(targetNetwork => ({
     ...targetNetwork,
     ...NETWORKS_EXTRA_DATA[targetNetwork.id],
   }));

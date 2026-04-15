@@ -2,11 +2,11 @@ import { Hash, SendTransactionParameters, TransactionReceipt, WalletClient } fro
 import { Config, useWalletClient } from "wagmi";
 import { getPublicClient } from "wagmi/actions";
 import { SendTransactionMutate } from "wagmi/query";
-import scaffoldConfig from "~~/scaffold.config";
+import appConfig from "~~/app.config";
 import { wagmiConfig } from "~~/services/web3/wagmiConfig";
 import { AllowedChainIds, getBlockExplorerTxLink } from "~~/utils/web3/networks";
 import { TransactorFuncOptions, getParsedErrorWithAllAbis } from "~~/utils/web3/contract";
-import { toast } from "react-hot-toast";
+import { notification } from "~~/utils/web3/notification";
 
 type TransactionFunc = (
   tx: (() => Promise<Hash>) | Parameters<SendTransactionMutate<Config, undefined>>[0],
@@ -52,7 +52,7 @@ export const useTransactor = (_walletClient?: WalletClient): TransactionFunc => 
     let transactionHash: Hash | undefined = undefined;
     let transactionReceipt: TransactionReceipt | undefined;
     let blockExplorerTxURL = "";
-    let chainId: number = scaffoldConfig.targetNetworks[0].id;
+    let chainId: number = appConfig.targetNetworks[0].id;
     try {
       chainId = await walletClient.getChainId();
       // Get full transaction from public client

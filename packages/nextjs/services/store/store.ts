@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import scaffoldConfig from "~~/scaffold.config";
+import appConfig from "~~/app.config";
 import { ChainWithAttributes, NETWORKS_EXTRA_DATA } from "~~/utils/web3/networks";
 
 /**
@@ -18,8 +18,8 @@ type GlobalState = {
 
 export const useGlobalState = create<GlobalState>(set => ({
   targetNetwork: {
-    ...scaffoldConfig.targetNetworks[0],
-    ...NETWORKS_EXTRA_DATA[scaffoldConfig.targetNetworks[0].id],
+    ...appConfig.targetNetworks[0],
+    ...NETWORKS_EXTRA_DATA[appConfig.targetNetworks[0].id],
   },
   setTargetNetwork: (newTargetNetwork: ChainWithAttributes) => set(() => ({ targetNetwork: newTargetNetwork })),
 }));

@@ -9,9 +9,9 @@ import {
 } from "@rainbow-me/rainbowkit/wallets";
 import { rainbowkitBurnerWallet } from "burner-connector";
 import * as chains from "viem/chains";
-import scaffoldConfig, { type ScaffoldConfig } from "~~/scaffold.config";
+import appConfig, { type AppConfig } from "~~/app.config";
 
-const { burnerWalletMode, targetNetworks } = scaffoldConfig as ScaffoldConfig;
+const { burnerWalletMode, targetNetworks } = appConfig as AppConfig;
 
 const hasOnlyLocalTargetNetworks = targetNetworks.every(network => network.id === (chains.hardhat as chains.Chain).id);
 const showBurnerWallet =
@@ -46,8 +46,8 @@ export const wagmiConnectors = () => {
     ],
 
     {
-      appName: "scaffold-eth-2",
-      projectId: scaffoldConfig.walletConnectProjectId,
+      appName: "Asset Registry",
+      projectId: appConfig.walletConnectProjectId,
     },
   );
 };
