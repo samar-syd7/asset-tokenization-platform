@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useAccount } from "wagmi";
-import { useScaffoldContract, useScaffoldReadContract, useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
-import { notification } from "~~/utils/scaffold-eth";
+import { useAccount, useContractRead, usePublicClient, useWriteContract } from "wagmi";
+import { toast } from "react-hot-toast";
+import { ASSET_REGISTRY_ADDRESS, assetRegistryContractConfig } from "~~/utils/web3/assetRegistry";
+import { Address } from "viem";
 
 type Asset = {
   id: number;
@@ -14,52 +15,58 @@ type Asset = {
 
 export const MyHoldings = () => {
   const { address: connectedAddress } = useAccount();
+  const publicClient = usePublicClient();
   const [myAssets, setMyAssets] = useState<Asset[]>([]);
   const [allCollectiblesLoading, setAllCollectiblesLoading] = useState(false);
   const [assetHistory, setAssetHistory] = useState<Record<number, any[]>>({});
 
-  const { data: assetRegistryContract } = useScaffoldContract({
-    contractName: "AssetRegistry",
-  });
-
-  const { data: myTotalBalance } = useScaffoldReadContract({
-    contractName: "AssetRegistry",
+  const { data: myTotalBalance } = useContractRead({
+    address: ASSET_REGISTRY_ADDRESS,
+    abi: assetRegistryContractConfig.abi,
     functionName: "balanceOf",
-    args: [connectedAddress],
+    args: connectedAddress ? [connectedAddress as Address] : undefined,
+    enabled: Boolean(connectedAddress),
     watch: true,
-  });
+  }) as { data?: bigint };
 
-  const { writeContractAsync } = useScaffoldWriteContract({ contractName: "AssetRegistry" });
+  const { writeContractAsync } = useWriteContract();
 
   const handleTransfer = async (tokenId: number) => {
+    if (!connectedAddress) {
+      toast.error("Connect your wallet to transfer assets");
+      return;
+    }
+
     const to = prompt("Enter recipient address (0x...)");
     if (!to || !to.startsWith("0x") || to.length !== 42) {
-      notification.error("Invalid address");
+      toast.error("Invalid address");
       return;
     }
 
     try {
       await writeContractAsync({
+        address: ASSET_REGISTRY_ADDRESS,
+        abi: AssetRegistryABI,
         functionName: "transferAsset",
-        args: [connectedAddress, to, BigInt(tokenId)],
+        args: [connectedAddress as Address, to as Address, BigInt(tokenId)],
       });
 
-      notification.success("Asset transferred");
-
+      toast.success("Asset transferred");
       setTimeout(() => {
         updateMyAssets();
+        fetchAssetHistory();
       }, 1000);
     } catch (e: any) {
       if (e?.message?.includes("User rejected")) {
-        notification.warning("Transaction cancelled");
+        toast.error("Transaction cancelled");
       } else {
-        notification.error("Transfer failed");
+        toast.error("Transfer failed");
       }
     }
   };
 
   const updateMyAssets = async (): Promise<void> => {
-    if (!assetRegistryContract || !connectedAddress || myTotalBalance === undefined) return;
+    if (!publicClient || !connectedAddress || myTotalBalance === undefined) return;
 
     setAllCollectiblesLoading(true);
 
@@ -68,9 +75,19 @@ export const MyHoldings = () => {
 
     for (let i = 0; i < total; i++) {
       try {
-        const tokenId = await assetRegistryContract.read.tokenOfOwnerByIndex([connectedAddress, BigInt(i)]);
+        const tokenId = (await publicClient.readContract({
+          address: ASSET_REGISTRY_ADDRESS,
+          abi: AssetRegistryABI,
+          functionName: "tokenOfOwnerByIndex",
+          args: [connectedAddress as Address, BigInt(i)],
+        })) as bigint;
 
-        const asset = await assetRegistryContract.read.getAsset([tokenId]);
+        const asset = (await publicClient.readContract({
+          address: ASSET_REGISTRY_ADDRESS,
+          abi: AssetRegistryABI,
+          functionName: "getAsset",
+          args: [tokenId],
+        })) as { name: string; assetType: string; valuation: bigint };
 
         assets.push({
           id: Number(tokenId),
@@ -79,7 +96,7 @@ export const MyHoldings = () => {
           valuation: Number(asset.valuation),
         });
       } catch (e) {
-        console.warn("Event fetch failed (non-critical)", e);
+        console.warn("Asset fetch failed (non-critical)", e);
       }
     }
 
@@ -89,23 +106,28 @@ export const MyHoldings = () => {
   };
 
   const fetchAssetHistory = async () => {
-    if (!assetRegistryContract) return;
+    if (!publicClient) return;
 
     try {
-      const events = await assetRegistryContract.getEvents.Transfer();
+      const events = await publicClient.getLogs({
+        address: ASSET_REGISTRY_ADDRESS,
+        abi: AssetRegistryABI,
+        eventName: "Transfer",
+      });
 
       const historyMap: Record<number, any[]> = {};
 
-      events.forEach((event: any) => {
-        const tokenId = Number(event.args.tokenId);
+      events.forEach(event => {
+        const args = event.args as { from: string; to: string; tokenId: bigint };
+        const tokenId = Number(args.tokenId);
 
         if (!historyMap[tokenId]) {
           historyMap[tokenId] = [];
         }
 
         historyMap[tokenId].push({
-          from: event.args.from,
-          to: event.args.to,
+          from: args.from,
+          to: args.to,
         });
       });
 
@@ -118,8 +140,7 @@ export const MyHoldings = () => {
   useEffect(() => {
     updateMyAssets();
     fetchAssetHistory();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [connectedAddress, myTotalBalance]);
+  }, [connectedAddress, myTotalBalance, publicClient]);
 
   if (allCollectiblesLoading)
     return (

@@ -3,38 +3,48 @@
 import { useState } from "react";
 import { MyHoldings } from "./_components";
 import type { NextPage } from "next";
-import { useAccount } from "wagmi";
-import { RainbowKitCustomConnectButton } from "~~/components/scaffold-eth";
-import { useScaffoldWriteContract } from "~~/hooks/scaffold-eth";
-import { notification } from "~~/utils/scaffold-eth";
+import { useAccount, useWriteContract } from "wagmi";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
+import { toast } from "react-hot-toast";
+import { assetRegistryContractConfig, ASSET_REGISTRY_ADDRESS } from "~~/utils/web3/assetRegistry";
 
-const MyNFTs: NextPage = () => {
+const CONTRACT_ADDRESS = ASSET_REGISTRY_ADDRESS;
+
+const MyAssets: NextPage = () => {
   const [name, setName] = useState("");
   const [assetType, setAssetType] = useState("");
   const [valuation, setValuation] = useState("");
   const [metadata, setMetadata] = useState("");
 
   const { address: connectedAddress, isConnected, isConnecting } = useAccount();
-
-  const { writeContractAsync } = useScaffoldWriteContract({ contractName: "AssetRegistry" });
+  const { writeContractAsync } = useWriteContract();
 
   const handleRegisterAsset = async () => {
     if (!connectedAddress) return;
 
     try {
       await writeContractAsync({
+        address: CONTRACT_ADDRESS,
+        abi: assetRegistryContractConfig.abi,
         functionName: "mintAsset",
-        args: [connectedAddress, name, assetType, BigInt(Math.floor(Number(valuation) || 0)), metadata || ""],
+        args: [
+          connectedAddress,
+          name,
+          assetType,
+          BigInt(Math.floor(Number(valuation) || 0)),
+          metadata || "",
+        ],
       });
 
-      notification.success("Asset registered successfully");
+      toast.success("Asset registered successfully");
+
       setName("");
       setAssetType("");
       setValuation("");
       setMetadata("");
     } catch (error) {
       console.error(error);
-      notification.error("Asset registration failed");
+      toast.error("Asset registration failed");
     }
   };
 
@@ -50,38 +60,19 @@ const MyNFTs: NextPage = () => {
       <div className="w-full max-w-2xl">
         {!isConnected || isConnecting ? (
           <div className="flex justify-center">
-            <RainbowKitCustomConnectButton />
+            <ConnectButton />
           </div>
         ) : (
           <div className="grid gap-6 md:grid-cols-[1.2fr_1fr]">
             <div className="rounded-3xl border border-slate-200 bg-base-100 p-6 shadow-sm">
               <h2 className="mb-4 text-xl font-semibold">Register New Asset</h2>
+
               <div className="flex flex-col gap-4">
-                <input
-                  className="input input-bordered"
-                  placeholder="Asset Name"
-                  value={name}
-                  onChange={e => setName(e.target.value)}
-                />
-                <input
-                  className="input input-bordered"
-                  placeholder="Asset Type"
-                  value={assetType}
-                  onChange={e => setAssetType(e.target.value)}
-                />
-                <input
-                  className="input input-bordered"
-                  placeholder="Valuation (USD)"
-                  type="number"
-                  value={valuation}
-                  onChange={e => setValuation(e.target.value)}
-                />
-                <input
-                  className="input input-bordered"
-                  placeholder="Metadata URI (optional)"
-                  value={metadata}
-                  onChange={e => setMetadata(e.target.value)}
-                />
+                <input className="input input-bordered" placeholder="Asset Name" value={name} onChange={e => setName(e.target.value)} />
+                <input className="input input-bordered" placeholder="Asset Type" value={assetType} onChange={e => setAssetType(e.target.value)} />
+                <input className="input input-bordered" placeholder="Valuation (USD)" type="number" value={valuation} onChange={e => setValuation(e.target.value)} />
+                <input className="input input-bordered" placeholder="Metadata URI (optional)" value={metadata} onChange={e => setMetadata(e.target.value)} />
+
                 <button className="btn btn-secondary" onClick={handleRegisterAsset}>
                   Register Asset
                 </button>
@@ -90,7 +81,9 @@ const MyNFTs: NextPage = () => {
 
             <div className="rounded-3xl border border-slate-200 bg-base-100 p-6 shadow-sm">
               <h2 className="mb-4 text-xl font-semibold">Asset Ledger</h2>
-              <p className="text-slate-600">Your registered assets and ownership information are stored on-chain.</p>
+              <p className="text-slate-600">
+                Your registered assets and ownership information are stored on-chain.
+              </p>
             </div>
           </div>
         )}
@@ -101,4 +94,4 @@ const MyNFTs: NextPage = () => {
   );
 };
 
-export default MyNFTs;
+export default MyAssets;

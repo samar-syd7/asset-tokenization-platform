@@ -1,22 +1,26 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Address } from "@scaffold-ui/components";
 import type { NextPage } from "next";
-import { useAccount } from "wagmi";
-import { useScaffoldReadContract, useTargetNetwork } from "~~/hooks/scaffold-eth";
+import { useAccount, useContractRead } from "wagmi";
+import { assetRegistryContractConfig, ASSET_REGISTRY_ADDRESS } from "~~/utils/web3/assetRegistry";
 
 const Home: NextPage = () => {
   const router = useRouter();
   const { address: connectedAddress } = useAccount();
-  const { targetNetwork } = useTargetNetwork();
 
-  const { data: assetBalance } = useScaffoldReadContract({
-    contractName: "AssetRegistry",
+  const { data: assetBalance } = useContractRead({
+    address: ASSET_REGISTRY_ADDRESS,
+    abi: assetRegistryContractConfig.abi,
     functionName: "balanceOf",
-    args: [connectedAddress],
-    watch: true,
+    args: [connectedAddress as `0x${string}`],
+    watch: Boolean(connectedAddress),
+    enabled: Boolean(connectedAddress),
   });
+
+  const formattedAddress = connectedAddress
+    ? `${connectedAddress.slice(0, 6)}...${connectedAddress.slice(-4)}`
+    : "Not connected";
 
   return (
     <div className="flex flex-col items-center grow pt-16 px-5">
@@ -52,10 +56,9 @@ const Home: NextPage = () => {
           <div className="space-y-4 text-center">
             <p className="text-sm text-slate-400">Connected Wallet</p>
 
-            <Address address={connectedAddress} chain={targetNetwork} />
+            <div className="font-mono text-white">{formattedAddress}</div>
 
             <div className="border-t border-slate-700 pt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Assets count */}
               <div className="bg-slate-800 rounded-xl p-6">
                 <p className="text-xs uppercase text-slate-500">Total Assets</p>
                 <p className="mt-2 text-4xl font-semibold text-white">
@@ -63,7 +66,6 @@ const Home: NextPage = () => {
                 </p>
               </div>
 
-              {/* Platform info */}
               <div className="bg-slate-800 rounded-xl p-6 text-left">
                 <p className="text-xs uppercase text-slate-500">System</p>
                 <p className="mt-2 text-sm text-slate-300">

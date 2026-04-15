@@ -1,10 +1,10 @@
 import { Account, Address, Chain, Client, Transport, getContract } from "viem";
 import { usePublicClient } from "wagmi";
 import { GetWalletClientReturnType } from "wagmi/actions";
-import { useSelectedNetwork } from "~~/hooks/scaffold-eth";
-import { useDeployedContractInfo } from "~~/hooks/scaffold-eth";
-import { AllowedChainIds } from "~~/utils/scaffold-eth";
-import { Contract, ContractName } from "~~/utils/scaffold-eth/contract";
+import { useSelectedNetwork } from "~~/hooks/web3/useSelectedNetwork";
+import { useDeployedContractInfo } from "~~/hooks/web3/useDeployedContractInfo";
+import { AllowedChainIds } from "~~/utils/web3/networks";
+import { Contract, ContractName } from "~~/utils/web3/contract";
 
 /**
  * Gets a viem instance of the contract present in deployedContracts.ts or externalContracts.ts corresponding to

@@ -4,9 +4,9 @@ import { Abi, ExtractAbiFunctionNames } from "abitype";
 import { Config, UseWriteContractParameters, useAccount, useConfig, useWriteContract } from "wagmi";
 import { WriteContractErrorType, WriteContractReturnType } from "wagmi/actions";
 import { WriteContractVariables } from "wagmi/query";
-import { useSelectedNetwork } from "~~/hooks/scaffold-eth";
-import { useDeployedContractInfo, useTransactor } from "~~/hooks/scaffold-eth";
-import { AllowedChainIds, notification } from "~~/utils/scaffold-eth";
+import { useSelectedNetwork } from "~~/hooks/web3/useSelectedNetwork";
+import { useDeployedContractInfo, useTransactor } from "~~/hooks/web3/useDeployedContractInfo";
+import { AllowedChainIds } from "~~/utils/web3/networks";
 import {
   ContractAbi,
   ContractName,
@@ -14,7 +14,7 @@ import {
   ScaffoldWriteContractVariables,
   UseScaffoldWriteConfig,
   simulateContractWriteAndNotifyError,
-} from "~~/utils/scaffold-eth/contract";
+} from "~~/utils/web3/contract";
 
 type ScaffoldWriteContractReturnType<TContractName extends ContractName> = Omit<
   ReturnType<typeof useWriteContract>,

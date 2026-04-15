@@ -7,8 +7,9 @@ import { usePathname } from "next/navigation";
 import { Bars3Icon } from "@heroicons/react/24/outline";
 import { ArrowPathIcon, PhotoIcon } from "@heroicons/react/24/outline";
 import { SwitchTheme } from "~~/components/SwitchTheme";
-import { RainbowKitCustomConnectButton } from "~~/components/scaffold-eth";
-import { useOutsideClick, useTargetNetwork } from "~~/hooks/scaffold-eth";
+import { RainbowKitCustomConnectButton } from "~~/components/web3/RainbowKitCustomConnectButton";
+import { useOutsideClick } from "~~/hooks/web3/useOutsideClick";
+import { useTargetNetwork } from "~~/hooks/web3/useTargetNetwork";
 
 type HeaderMenuLink = {
   label: string;

@@ -1,14 +1,14 @@
 import { useEffect, useState } from "react";
 import { useIsMounted } from "usehooks-ts";
 import { usePublicClient } from "wagmi";
-import { useSelectedNetwork } from "~~/hooks/scaffold-eth";
+import { useSelectedNetwork } from "~~/hooks/web3/useSelectedNetwork";
 import {
   Contract,
   ContractCodeStatus,
   ContractName,
   UseDeployedContractConfig,
   contracts,
-} from "~~/utils/scaffold-eth/contract";
+} from "~~/utils/web3/contract";
 
 type DeployedContractData<TContractName extends ContractName> = {
   data: Contract<TContractName> | undefined;

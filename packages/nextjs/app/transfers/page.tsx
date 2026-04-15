@@ -1,42 +1,96 @@
 "use client";
 
-import { Address } from "@scaffold-ui/components";
-import type { NextPage } from "next";
-import { hardhat } from "viem/chains";
-import { useScaffoldEventHistory } from "~~/hooks/scaffold-eth";
-import { useTargetNetwork } from "~~/hooks/scaffold-eth";
-import { useAccount } from "wagmi";
+import { useEffect, useMemo, useState } from "react";
+import { decodeEventLog, getEventSelector } from "viem";
+import type { Abi } from "abitype";
+import { useAccount, usePublicClient } from "wagmi";
+import AssetRegistryArtifact from "../../../hardhat/deployments/sepolia/AssetRegistry.json";
+import { ASSET_REGISTRY_ADDRESS } from "~~/utils/web3/assetRegistry";
+import { getBlockExplorerAddressLink } from "~~/utils/web3/networks";
 
-const Transfers: NextPage = () => {
-  const { targetNetwork } = useTargetNetwork();
+type TransferEvent = {
+  args: {
+    from: string;
+    to: string;
+    tokenId: bigint;
+  };
+  blockNumber: bigint;
+  transactionHash: string;
+  logIndex: number;
+};
+
+const shortAddress = (address: string) => `${address.slice(0, 6)}...${address.slice(-4)}`;
+const assetRegistryAbi = AssetRegistryArtifact.abi as Abi;
+
+const Transfers = () => {
   const { address } = useAccount();
+  const publicClient = usePublicClient();
+  const [transferEvents, setTransferEvents] = useState<TransferEvent[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const { data: transferEvents, isLoading } = useScaffoldEventHistory({
-    contractName: "AssetRegistry",
-    eventName: "Transfer",
-  });
+  useEffect(() => {
+    if (!address || !publicClient) return;
 
-  // Filter only user's transfers
-  const userTransfers = transferEvents?.filter(event =>
-    address &&
-    (event.args.from?.toLowerCase() === address.toLowerCase() ||
-      event.args.to?.toLowerCase() === address.toLowerCase())
+    const fetchTransfers = async () => {
+      setIsLoading(true);
+      try {
+        const transferTopic = getEventSelector("Transfer(address,address,uint256)");
+        const logs = await publicClient.getLogs({
+          address: ASSET_REGISTRY_ADDRESS,
+        });
+
+        const decodedEvents = logs
+          .filter(log => log.topics?.[0] === transferTopic)
+          .map(log => {
+            const decoded = decodeEventLog({
+              abi: assetRegistryAbi,
+              data: log.data,
+              topics: log.topics,
+              eventName: "Transfer",
+            });
+            return {
+              ...log,
+              args: decoded.args as unknown as { from: string; to: string; tokenId: bigint },
+            };
+          })
+          .filter(event => {
+            const args = event.args;
+            const lowerAddress = address.toLowerCase();
+            return args.from.toLowerCase() === lowerAddress || args.to.toLowerCase() === lowerAddress;
+          });
+
+        const uniqueEvents = Array.from(
+          new Map(decodedEvents.map(event => [`${event.transactionHash}:${event.logIndex}`, event])).values(),
+        );
+
+        setTransferEvents(
+          uniqueEvents
+            .map(event => ({
+              args: event.args,
+              blockNumber: event.blockNumber,
+              transactionHash: event.transactionHash,
+              logIndex: event.logIndex,
+            }))
+            .sort((a, b) => Number(b.blockNumber - a.blockNumber)),
+        );
+      } catch (error) {
+        console.error("Failed to load transfer events", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchTransfers();
+  }, [address, publicClient]);
+
+  const blockExplorerAddressLink = useMemo(
+    () =>
+      publicClient?.chain && address
+        ? getBlockExplorerAddressLink(publicClient.chain, address)
+        : undefined,
+    [address, publicClient?.chain],
   );
 
-  // Sort newest first (optional but recommended)
-  const sortedTransfers = [...(userTransfers || [])].sort(
-    (a, b) => Number(b.blockNumber) - Number(a.blockNumber)
-  );
-
-  // Loading state
-  if (isLoading)
-    return (
-      <div className="flex justify-center items-center mt-10">
-        <span className="loading loading-spinner loading-xl"></span>
-      </div>
-    );
-
-  // Wallet not connected
   if (!address)
     return (
       <div className="flex justify-center items-center mt-20 text-lg text-slate-400">
@@ -64,36 +118,36 @@ const Transfers: NextPage = () => {
           </thead>
 
           <tbody>
-            {!sortedTransfers || sortedTransfers.length === 0 ? (
+            {isLoading ? (
               <tr>
-                <td colSpan={3} className="text-center">
+                <td colSpan={3} className="text-center py-6">
+                  <span className="loading loading-spinner loading-xl"></span>
+                </td>
+              </tr>
+            ) : transferEvents.length === 0 ? (
+              <tr>
+                <td colSpan={3} className="text-center py-6">
                   No transfers found for your wallet
                 </td>
               </tr>
             ) : (
-              sortedTransfers.map((event, index) => (
-                <tr key={index}>
-                  <th className="text-center">
-                    {event.args.tokenId?.toString()}
-                  </th>
-
+              transferEvents.map((event, index) => (
+                <tr key={`${event.transactionHash}-${event.logIndex}-${index}`}>
+                  <th className="text-center">{event.args.tokenId.toString()}</th>
                   <td>
-                    <Address
-                      address={event.args.from}
-                      chain={targetNetwork}
-                    />
+                    <div className="flex items-center gap-2">
+                      <span>{shortAddress(event.args.from)}</span>
+                    </div>
                   </td>
-
                   <td>
-                    <Address
-                      address={event.args.to}
-                      chain={targetNetwork}
-                      blockExplorerAddressLink={
-                        targetNetwork.id === hardhat.id
-                          ? `/blockexplorer/address/${event.args.to}`
-                          : undefined
-                      }
-                    />
+                    <a
+                      className="link"
+                      href={blockExplorerAddressLink}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {shortAddress(event.args.to)}
+                    </a>
                   </td>
                 </tr>
               ))
