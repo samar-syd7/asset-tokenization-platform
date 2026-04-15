@@ -1,0 +1,27 @@
+{
+  "name": "Asset Tokenization Dev",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:20",
+
+  "postCreateCommand": "yarn install",
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "esbenp.prettier-vscode",
+        "dbaeumer.vscode-eslint"
+      ]
+    }
+  },
+
+  "forwardPorts": [3000, 8545],
+
+  "portsAttributes": {
+    "3000": {
+      "label": "Next.js App",
+      "onAutoForward": "openBrowser"
+    },
+    "8545": {
+      "label": "Hardhat Node"
+    }
+  }
+}

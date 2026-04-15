@@ -1,0 +1,59 @@
+# Dependencies
+node_modules/
+
+
+# Next.js build outputs
+.next/
+out/
+build/
+dist/
+
+# Environment variables (CRITICAL)
+.env
+.env.local
+.env.development
+.env.production
+.env.test
+
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE / Editor
+.vscode/
+.idea/
+
+
+# Yarn (keep your rules)
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+
+
+# ESLint / cache
+.eslintcache
+
+
+# TypeScript
+*.tsbuildinfo
+
+# Web3 / Hardhat / Foundry (if present)
+artifacts/
+cache/
+typechain/
+broadcast/
+
+# Vercel
+.vercel/
