@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useRef } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Bars3Icon } from "@heroicons/react/24/outline";
@@ -73,8 +74,8 @@ export const Header = () => {
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4">
         <div className="flex items-center gap-4">
           <Link href="/" className="inline-flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-3xl bg-cyan-500/10 ring-1 ring-cyan-200/10 text-cyan-300 shadow-lg shadow-cyan-500/10">
-              <span className="text-xl font-semibold">AR</span>
+            <div className="flex h-12 w-12 items-center justify-center rounded-3xl border border-white/10 bg-cyan-500/10 text-cyan-300 shadow-lg shadow-cyan-500/10">
+              <Image src="/newlogo.svg" alt="Asset Registry logo" width={36} height={36} className="h-10 w-10" />
             </div>
             <div>
               <p className="text-lg font-semibold text-white">Asset Registry</p>

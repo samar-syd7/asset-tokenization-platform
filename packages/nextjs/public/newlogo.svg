@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Asset Registry logo</title>
+  <desc id="desc">Minimal geometric Web3 logo representing asset tokenization, blockchain ownership, and digital registry trust.</desc>
+
+  <!-- Background -->
+  <rect width="512" height="512" fill="#0f172a"></rect>
+
+  <!-- Icon -->
+  <g transform="translate(0 4)" fill="none" stroke="#06b6d4" stroke-linecap="square" stroke-linejoin="miter">
+    <!-- Outer wireframe cube -->
+    <path stroke-width="18" d="M256 108 L344 158 L344 256 L256 306 L168 256 L168 158 Z"></path>
+    <path stroke-width="18" d="M256 108 L256 206"></path>
+    <path stroke-width="18" d="M168 158 L256 206 L344 158"></path>
+    <path stroke-width="18" d="M168 256 L256 206 L344 256"></path>
+
+    <!-- Ledger layers -->
+    <path stroke-width="16" d="M223 188 H289"></path>
+    <path stroke-width="16" d="M214 218 H298"></path>
+    <path stroke-width="16" d="M223 248 H289"></path>
+
+    <!-- Node points -->
+    <g fill="#06b6d4" stroke="none">
+      <circle cx="256" cy="108" r="12"></circle>
+      <circle cx="344" cy="158" r="12"></circle>
+      <circle cx="344" cy="256" r="12"></circle>
+      <circle cx="256" cy="306" r="12"></circle>
+      <circle cx="168" cy="256" r="12"></circle>
+      <circle cx="168" cy="158" r="12"></circle>
+      <circle cx="256" cy="206" r="10"></circle>
+    </g>
+
+    <!-- Subtle registry mark -->
+    <path stroke-width="14" d="M238 230 L252 244 L276 220"></path>
+  </g>
+</svg>
