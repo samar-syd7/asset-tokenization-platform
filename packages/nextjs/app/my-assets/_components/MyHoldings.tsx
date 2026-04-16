@@ -262,7 +262,6 @@ export const MyHoldings = () => {
 
   const totalValue = myAssets.reduce((sum, asset) => sum + asset.valuation, 0);
   const uniqueTypes = new Set(myAssets.map(asset => asset.assetType)).size;
-  const walletShort = connectedAddress ? `${connectedAddress.slice(0, 6)}...${connectedAddress.slice(-4)}` : "Not connected";
   const isRecipientValid = transferRecipient.startsWith("0x") && transferRecipient.length === 42;
 
   useEffect(() => {
@@ -330,7 +329,7 @@ export const MyHoldings = () => {
               <p className="mt-3 text-slate-400">Track your tokenized real-world assets with modern Web3 controls, instant transfers, and full on-chain visibility.</p>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="rounded-3xl border border-white/10 bg-slate-900/80 p-4">
                 <p className="text-sm uppercase tracking-[0.35em] text-slate-400">Assets</p>
                 <p className="mt-3 text-lg font-semibold text-white">{myAssets.length}</p>
@@ -338,10 +337,6 @@ export const MyHoldings = () => {
               <div className="rounded-3xl border border-white/10 bg-slate-900/80 p-4">
                 <p className="text-sm uppercase tracking-[0.35em] text-slate-400">Total value</p>
                 <p className="mt-3 text-lg font-semibold text-white">${totalValue.toLocaleString()}</p>
-              </div>
-              <div className="rounded-3xl border border-white/10 bg-slate-900/80 p-4">
-                <p className="text-sm uppercase tracking-[0.35em] text-slate-400">Wallet</p>
-                <p className="mt-3 text-lg font-semibold text-white">{walletShort}</p>
               </div>
             </div>
           </div>
