@@ -117,3 +117,15 @@
   --color-sui-skeleton-base: var(--color-sui-primary-subtle);
   --color-sui-skeleton-highlight: var(--color-sui-primary-neutral);
 }
+
+li {
+  list-style: none;
+}
+
+li::marker {
+  content: "";
+}
+
+li::before {
+  display: none !important;
+}

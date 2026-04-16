@@ -37,11 +37,11 @@ export const HeaderMenuLinks = () => {
   const pathname = usePathname();
 
   return (
-    <>
+    <ul className="flex items-center gap-2 list-none p-0 m-0">
       {menuLinks.map(({ label, href, icon }) => {
         const isActive = pathname === href;
         return (
-          <li key={href}>
+          <li key={href} className="list-none">
             <Link
               href={href}
               className={`group inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm transition-all duration-300 ${
@@ -56,7 +56,7 @@ export const HeaderMenuLinks = () => {
           </li>
         );
       })}
-    </>
+    </ul>
   );
 };
 
