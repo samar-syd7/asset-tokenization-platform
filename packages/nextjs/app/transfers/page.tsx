@@ -37,6 +37,9 @@ const Transfers = () => {
           "event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)",
         );
 
+        console.log("address:", address, "chainId:", publicClient.chain?.id);
+        console.log("transferEvent:", transferEvent);
+
         const logs = await publicClient.getLogs({
           address: ASSET_REGISTRY_ADDRESS,
           fromBlock: 0n,
@@ -102,13 +105,13 @@ const Transfers = () => {
           <tbody>
             {isLoading ? (
               <tr>
-                <td colSpan={3} className="text-center py-6">
+                <td colSpan={5} className="text-center py-6">
                   <span className="loading loading-spinner loading-xl"></span>
                 </td>
               </tr>
             ) : transferEvents.length === 0 ? (
               <tr>
-                <td colSpan={3} className="text-center py-6">
+                <td colSpan={5} className="text-center py-6">
                   No transfers found for your wallet
                 </td>
               </tr>
