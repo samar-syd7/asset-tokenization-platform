@@ -40,16 +40,37 @@ export const MyHoldings = () => {
   }) as { data?: bigint };
 
   const { writeContractAsync } = useWriteContract();
+  const [transferModalOpen, setTransferModalOpen] = useState(false);
+  const [selectedTransferAsset, setSelectedTransferAsset] = useState<Asset | null>(null);
+  const [transferRecipient, setTransferRecipient] = useState("");
+  const [isTransferPending, setIsTransferPending] = useState(false);
 
-  const handleTransfer = async (tokenId: number) => {
-    if (!connectedAddress) {
-      toast.error("Connect your wallet to transfer assets");
+  const openTransferModal = (asset: Asset) => {
+    setSelectedTransferAsset(asset);
+    setTransferRecipient("");
+    setTransferModalOpen(true);
+  };
+
+  const closeTransferModal = () => {
+    setTransferModalOpen(false);
+    setSelectedTransferAsset(null);
+    setTransferRecipient("");
+  };
+
+  const confirmTransfer = async () => {
+    if (!selectedTransferAsset) return;
+    if (!transferRecipient || !transferRecipient.startsWith("0x") || transferRecipient.length !== 42) {
+      toast.error("Invalid recipient address");
       return;
     }
 
-    const to = prompt("Enter recipient address (0x...)");
-    if (!to || !to.startsWith("0x") || to.length !== 42) {
-      toast.error("Invalid address");
+    closeTransferModal();
+    await handleTransfer(selectedTransferAsset.id, transferRecipient);
+  };
+
+  const handleTransfer = async (tokenId: number, toAddress: string) => {
+    if (!connectedAddress) {
+      toast.error("Connect your wallet to transfer assets");
       return;
     }
 
@@ -77,7 +98,7 @@ export const MyHoldings = () => {
         address: ASSET_REGISTRY_ADDRESS,
         abi: assetRegistryContractConfig.abi,
         functionName: "transferAsset",
-        args: [connectedAddress as Address, to as Address, BigInt(tokenId)],
+        args: [connectedAddress as Address, toAddress as Address, BigInt(tokenId)],
       })) as { wait?: () => Promise<any> } | string | undefined;
 
       const previousAssets = myAssets;
@@ -85,6 +106,7 @@ export const MyHoldings = () => {
       if (removedAsset) {
         setMyAssets(prev => prev.filter(asset => asset.id !== tokenId));
       }
+      setIsTransferPending(true);
       toast.success("Asset transfer submitted");
 
       (async () => {
@@ -102,6 +124,8 @@ export const MyHoldings = () => {
           console.error("[MyHoldings] transfer confirmation failed", confirmError);
           setMyAssets(previousAssets);
           toast.error("Transfer failed. Restoring your assets.");
+        } finally {
+          setIsTransferPending(false);
         }
       })();
     } catch (e: any) {
@@ -110,6 +134,7 @@ export const MyHoldings = () => {
       } else {
         toast.error("Transfer failed");
       }
+      setIsTransferPending(false);
       return;
     }
   };
@@ -235,6 +260,11 @@ export const MyHoldings = () => {
     }
   }, [publicClient, connectedAddress]);
 
+  const totalValue = myAssets.reduce((sum, asset) => sum + asset.valuation, 0);
+  const uniqueTypes = new Set(myAssets.map(asset => asset.assetType)).size;
+  const walletShort = connectedAddress ? `${connectedAddress.slice(0, 6)}...${connectedAddress.slice(-4)}` : "Not connected";
+  const isRecipientValid = transferRecipient.startsWith("0x") && transferRecipient.length === 42;
+
   useEffect(() => {
     if (publicClient?.chain?.id && publicClient.chain.id !== 11155111) {
       console.warn("[MyHoldings] expected Sepolia chainId 11155111, got", publicClient.chain.id);
@@ -244,81 +274,169 @@ export const MyHoldings = () => {
     fetchAssetHistory();
   }, [connectedAddress, myTotalBalance, updateMyAssets, fetchAssetHistory]);
 
-  if (allCollectiblesLoading)
-    return (
-      <div className="flex justify-center items-center mt-10">
-        <span className="loading loading-spinner loading-lg"></span>
-      </div>
-    );
-
   return (
     <>
-      {myAssets.length === 0 ? (
-        <div className="flex justify-center items-center mt-10">
-          <div className="text-2xl text-primary-content">No Assets Found</div>
-        </div>
-      ) : (
-        <div className="flex flex-wrap gap-6 justify-center mt-8">
-          {myAssets.map(asset => (
-            <div
-              key={asset.id}
-              className="bg-gradient-to-br from-slate-900 to-slate-800 
-             border border-slate-700 rounded-xl p-4 w-72 
-             shadow-lg hover:shadow-xl transition-all"
-            >
-              <img
-                src={`https://robohash.org/${asset.id}?set=set2`}
-                className="w-full h-36 rounded-md mb-3 object-cover"
-              />
-              <h2 className="text-lg font-semibold text-white">{asset.name}</h2>
-              <p className="text-xs text-slate-400 uppercase tracking-wide">Type: {asset.assetType}</p>
-              <p className="text-lg font-bold text-white">Value: ${asset.valuation}</p>
-              <p className="text-xs opacity-60">Token ID: {asset.id}</p>
-
-              {/* History */}
-              <div className="mt-3">
-                <p className="font-semibold text-sm">History:</p>
-
-                {assetHistory[asset.id]?.length ? (
-                  <div className="overflow-x-auto mt-2">
-                    <table className="min-w-full text-xs border-collapse">
-                      <thead>
-                        <tr>
-                          <th className="text-left text-slate-300 pb-2">From</th>
-                          <th className="text-left text-slate-300 pb-2">To</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {assetHistory[asset.id].map((event, idx) => (
-                          <tr key={`${asset.id}-${idx}`}>
-                            <td className="pr-2 py-1 opacity-80">
-                              {event.from === "0x0000000000000000000000000000000000000000"
-                                ? "Minted"
-                                : `${event.from.slice(0, 6)}...${event.from.slice(-4)}`}
-                            </td>
-                            <td className="py-1 opacity-80">
-                              {event.to === "0x0000000000000000000000000000000000000000"
-                                ? "Burned"
-                                : `${event.to.slice(0, 6)}...${event.to.slice(-4)}`}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <p className="text-xs opacity-50">No history</p>
-                )}
+      {transferModalOpen && selectedTransferAsset && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/90 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-xl overflow-hidden rounded-[2rem] border border-white/10 bg-slate-950/95 p-6 shadow-2xl shadow-slate-950/40">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs uppercase tracking-[0.35em] text-cyan-300">Transfer Asset</p>
+                <h2 className="mt-2 text-2xl font-semibold text-white">{selectedTransferAsset.name}</h2>
+                <p className="text-sm text-slate-400">Token ID #{selectedTransferAsset.id}</p>
               </div>
-
-              {/* Transfer button */}
-              <button className="btn btn-sm btn-primary mt-2" onClick={() => handleTransfer(asset.id)}>
-                Transfer
+              <button className="btn btn-ghost btn-square text-slate-300" onClick={closeTransferModal}>
+                ✕
               </button>
             </div>
-          ))}
+
+            <div className="mt-6 space-y-4">
+              <div className="rounded-3xl border border-white/10 bg-slate-900/80 p-4">
+                <label className="label pb-2">
+                  <span className="label-text text-slate-300">Recipient wallet address</span>
+                </label>
+                <input
+                  type="text"
+                  value={transferRecipient}
+                  onChange={e => setTransferRecipient(e.target.value)}
+                  placeholder="0x..."
+                  className="input input-bordered w-full bg-slate-950/85 text-white placeholder:text-slate-500"
+                />
+              </div>
+            </div>
+
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
+              <button className="btn btn-ghost btn-outline" onClick={closeTransferModal}>
+                Cancel
+              </button>
+              <button
+                className={`btn btn-primary ${isTransferPending ? "loading" : ""}`}
+                onClick={confirmTransfer}
+                disabled={!isRecipientValid || isTransferPending}
+              >
+                Confirm Transfer
+              </button>
+            </div>
+          </div>
         </div>
       )}
+
+      <div className="mx-auto w-full max-w-7xl px-4 py-6">
+        <div className="mb-8 overflow-hidden rounded-[2rem] border border-white/10 bg-slate-950/70 p-6 shadow-2xl shadow-slate-950/40 backdrop-blur-xl">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+            <div className="max-w-2xl">
+              <p className="mb-2 text-xs uppercase tracking-[0.35em] text-cyan-300">Portfolio dashboard</p>
+              <h1 className="text-3xl font-semibold text-white sm:text-4xl">My Asset Registry</h1>
+              <p className="mt-3 text-slate-400">Track your tokenized real-world assets with modern Web3 controls, instant transfers, and full on-chain visibility.</p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <div className="rounded-3xl border border-white/10 bg-slate-900/80 p-4">
+                <p className="text-sm uppercase tracking-[0.35em] text-slate-400">Assets</p>
+                <p className="mt-3 text-3xl font-semibold text-white">{myAssets.length}</p>
+              </div>
+              <div className="rounded-3xl border border-white/10 bg-slate-900/80 p-4">
+                <p className="text-sm uppercase tracking-[0.35em] text-slate-400">Total value</p>
+                <p className="mt-3 text-3xl font-semibold text-white">${totalValue.toLocaleString()}</p>
+              </div>
+              <div className="rounded-3xl border border-white/10 bg-slate-900/80 p-4">
+                <p className="text-sm uppercase tracking-[0.35em] text-slate-400">Wallet</p>
+                <p className="mt-3 text-3xl font-semibold text-white">{walletShort}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 grid gap-4 sm:grid-cols-3">
+            <div className="rounded-3xl border border-white/10 bg-slate-900/80 p-4">
+              <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Asset types</p>
+              <p className="mt-2 text-xl font-semibold text-white">{uniqueTypes}</p>
+            </div>
+            <div className="rounded-3xl border border-white/10 bg-slate-900/80 p-4">
+              <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Connected</p>
+              <p className="mt-2 text-xl font-semibold text-white">{connectedAddress ? "Yes" : "No"}</p>
+            </div>
+            <div className="rounded-3xl border border-white/10 bg-slate-900/80 p-4">
+              <p className="text-xs uppercase tracking-[0.35em] text-slate-400">Sync status</p>
+              <p className="mt-2 text-xl font-semibold text-white">Live</p>
+            </div>
+          </div>
+        </div>
+
+        {allCollectiblesLoading ? (
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <div key={index} className="overflow-hidden rounded-[2rem] border border-white/10 bg-slate-900/60 p-6 shadow-xl shadow-slate-950/20 backdrop-blur-xl animate-pulse">
+                <div className="h-52 rounded-[1.5rem] bg-slate-800" />
+                <div className="mt-6 h-5 w-3/4 rounded-full bg-slate-800" />
+                <div className="mt-4 flex gap-2">
+                  <div className="h-8 w-24 rounded-full bg-slate-800" />
+                  <div className="h-8 w-20 rounded-full bg-slate-800" />
+                </div>
+                <div className="mt-6 h-10 w-full rounded-full bg-slate-800" />
+              </div>
+            ))}
+          </div>
+        ) : myAssets.length === 0 ? (
+          <div className="rounded-[2rem] border border-white/10 bg-slate-950/70 p-10 text-center shadow-2xl shadow-slate-950/20 backdrop-blur-xl">
+            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-3xl bg-slate-900/80 text-4xl">📦</div>
+            <h2 className="text-3xl font-semibold text-white">No assets found</h2>
+            <p className="mt-3 text-slate-400">Your wallet does not currently own any registered assets. Start by registering an asset or receiving a transfer.</p>
+            <button
+              className="btn btn-primary mt-8 rounded-full px-8 py-4 text-base"
+              onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+            >
+              Register your first asset
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {myAssets.map(asset => (
+              <div
+                key={asset.id}
+                className="group relative overflow-hidden rounded-[2rem] border border-white/10 bg-gradient-to-br from-slate-900/70 via-slate-950/80 to-slate-900/90 p-6 shadow-xl shadow-slate-950/30 transition duration-300 hover:-translate-y-1 hover:shadow-2xl"
+              >
+                <div className="pointer-events-none absolute inset-x-4 top-4 h-28 rounded-[1.75rem] bg-gradient-to-br from-cyan-500/15 via-sky-500/10 to-indigo-500/0 blur-2xl" />
+                <img
+                  src={`https://robohash.org/${asset.id}?set=set2`}
+                  alt={asset.name}
+                  className="relative h-44 w-full rounded-[1.5rem] border border-white/10 object-cover shadow-inner"
+                />
+                <div className="relative mt-5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="badge badge-sm badge-primary bg-cyan-500/10 text-cyan-200 border border-cyan-500/20">{asset.assetType}</span>
+                    <span className="badge badge-sm badge-secondary bg-white/5 text-white border border-white/10">Val ${asset.valuation}</span>
+                  </div>
+                  <h3 className="mt-4 text-xl font-semibold text-white">{asset.name}</h3>
+                  <p className="mt-2 text-sm text-slate-400">Token ID #{asset.id}</p>
+                </div>
+
+                <div className="mt-5 rounded-3xl border border-white/10 bg-slate-900/80 p-4">
+                  <p className="text-sm uppercase tracking-[0.3em] text-slate-500">Recent activity</p>
+                  {assetHistory[asset.id]?.length ? (
+                    <div className="mt-3 space-y-2 text-sm text-slate-300">
+                      {assetHistory[asset.id].slice(-2).map((event, idx) => (
+                        <div key={`${asset.id}-${idx}`} className="rounded-2xl bg-white/5 p-3">
+                          <p>{event.from === "0x0000000000000000000000000000000000000000" ? "Minted" : "Transferred"}</p>
+                          <p className="text-slate-400">To {event.to.slice(0, 6)}...{event.to.slice(-4)}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-3 text-sm text-slate-500">No transfers yet</p>
+                  )}
+                </div>
+
+                <button
+                  className="btn btn-primary mt-5 w-full rounded-full bg-gradient-to-r from-cyan-500 to-sky-500 text-white transition-transform duration-200 hover:-translate-y-0.5"
+                  onClick={() => openTransferModal(asset)}
+                >
+                  Transfer
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </>
   );
 };
