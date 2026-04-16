@@ -333,15 +333,15 @@ export const MyHoldings = () => {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div className="rounded-3xl border border-white/10 bg-slate-900/80 p-4">
                 <p className="text-sm uppercase tracking-[0.35em] text-slate-400">Assets</p>
-                <p className="mt-3 text-3xl font-semibold text-white">{myAssets.length}</p>
+                <p className="mt-3 text-lg font-semibold text-white">{myAssets.length}</p>
               </div>
               <div className="rounded-3xl border border-white/10 bg-slate-900/80 p-4">
                 <p className="text-sm uppercase tracking-[0.35em] text-slate-400">Total value</p>
-                <p className="mt-3 text-3xl font-semibold text-white">${totalValue.toLocaleString()}</p>
+                <p className="mt-3 text-lg font-semibold text-white">${totalValue.toLocaleString()}</p>
               </div>
               <div className="rounded-3xl border border-white/10 bg-slate-900/80 p-4">
                 <p className="text-sm uppercase tracking-[0.35em] text-slate-400">Wallet</p>
-                <p className="mt-3 text-3xl font-semibold text-white">{walletShort}</p>
+                <p className="mt-3 text-lg font-semibold text-white">{walletShort}</p>
               </div>
             </div>
           </div>
