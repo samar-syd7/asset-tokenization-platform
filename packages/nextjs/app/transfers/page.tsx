@@ -23,9 +23,12 @@ const Transfers = () => {
   const [transferEvents, setTransferEvents] = useState<TransferEvent[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
+  const dedupeKey = (transfer: TransferEvent) => `${transfer.tokenId}-${transfer.from}-${transfer.to}`;
+
   useWatchContractEvent({
     address: ASSET_REGISTRY_ADDRESS,
     abi: assetRegistryContractConfig.abi,
+    chainId: 11155111,
     eventName: "Transfer",
     onLogs(logs) {
       console.log("New logs:", logs);
@@ -47,15 +50,18 @@ const Transfers = () => {
         .filter(event => event.from.toLowerCase() === lowerAddress || event.to.toLowerCase() === lowerAddress);
 
       setTransferEvents(prev => {
-        const existingIds = new Set(prev.map(event => `${event.transactionHash}:${event.logIndex}`));
-        const dedupedNew = newTransfers.filter(event => !existingIds.has(`${event.transactionHash}:${event.logIndex}`));
-        return [...dedupedNew, ...prev].sort((a, b) => Number(b.blockNumber - a.blockNumber));
+        const merged = [...newTransfers, ...prev];
+        const unique = Array.from(
+          new Map(merged.map(t => [dedupeKey(t), t])).values(),
+        );
+        return unique.sort((a, b) => Number(b.blockNumber - a.blockNumber));
       });
     },
+    enabled: Boolean(publicClient && address),
   });
 
   useEffect(() => {
-    if (!address || !publicClient) return;
+    if (!publicClient || !address) return;
 
     const fetchTransfers = async () => {
       setIsLoading(true);
@@ -70,8 +76,8 @@ const Transfers = () => {
 
         console.log("address:", address, "chainId:", publicClient.chain?.id);
 
-        const currentBlock = await publicClient.getBlockNumber();
-        const fromBlock = currentBlock > 10000n ? currentBlock - 10000n : 1n;
+        const latestBlock = await publicClient.getBlockNumber();
+        const fromBlock = latestBlock > 5000n ? latestBlock - 5000n : 1n;
 
         const logs = await publicClient.getLogs({
           address: ASSET_REGISTRY_ADDRESS,
@@ -79,7 +85,7 @@ const Transfers = () => {
           event: transferEvent,
         });
 
-        console.log("logs:", logs);
+        console.log("Fetched logs:", logs);
 
         const transfers = logs
           .map(log => {
@@ -108,7 +114,7 @@ const Transfers = () => {
     };
 
     fetchTransfers();
-  }, [address, publicClient]);
+  }, [publicClient, address]);
 
   if (!address)
     return (
