@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useAccount, usePublicClient, useReadContract, useWriteContract } from "wagmi";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useAccount, usePublicClient, useWriteContract } from "wagmi";
 import { toast } from "react-hot-toast";
-import { getContract, Address } from "viem";
+import { getContract, parseAbiItem, Address } from "viem";
 import { ASSET_REGISTRY_ADDRESS, assetRegistryContractConfig } from "~~/utils/web3/assetRegistry";
 
 type Asset = {
@@ -29,16 +29,6 @@ export const MyHoldings = () => {
   const [allCollectiblesLoading, setAllCollectiblesLoading] = useState(false);
   const [assetHistory, setAssetHistory] = useState<Record<number, any[]>>({});
 
-  const { data: myTotalBalance } = useReadContract({
-    address: ASSET_REGISTRY_ADDRESS,
-    abi: assetRegistryContractConfig.abi,
-    functionName: "balanceOf",
-    args: connectedAddress ? [connectedAddress as Address] : undefined,
-    query: {
-      enabled: Boolean(connectedAddress),
-    },
-  }) as { data?: bigint };
-
   const { writeContractAsync } = useWriteContract();
 
   const handleTransfer = async (tokenId: number) => {
@@ -54,18 +44,22 @@ export const MyHoldings = () => {
     }
 
     try {
-      await writeContractAsync({
+      const txResult = (await writeContractAsync({
         address: ASSET_REGISTRY_ADDRESS,
         abi: assetRegistryContractConfig.abi,
         functionName: "transferAsset",
         args: [connectedAddress as Address, to as Address, BigInt(tokenId)],
-      });
+      })) as { wait?: () => Promise<any> } | string | undefined;
+
+      if (typeof txResult === "object" && typeof (txResult as { wait?: unknown }).wait === "function") {
+        await (txResult as { wait: () => Promise<any> }).wait();
+      } else if (typeof txResult === "string" && publicClient) {
+        await publicClient.waitForTransactionReceipt({ hash: txResult as `0x${string}` });
+      }
 
       toast.success("Asset transferred");
-      setTimeout(() => {
-        updateMyAssets();
-        fetchAssetHistory();
-      }, 1000);
+      await updateMyAssets();
+      await fetchAssetHistory();
     } catch (e: any) {
       if (e?.message?.includes("User rejected")) {
         toast.error("Transaction cancelled");
@@ -76,95 +70,107 @@ export const MyHoldings = () => {
     }
   };
 
-  const updateMyAssets = async (): Promise<void> => {
-    if (!contract || !connectedAddress || myTotalBalance === undefined) return;
+  const updateMyAssets = useCallback(async (): Promise<void> => {
+    if (!contract || !connectedAddress) return;
 
     setAllCollectiblesLoading(true);
-    const total = Number(myTotalBalance);
 
-    console.debug("[MyHoldings] updateMyAssets", {
-      contractAddress: ASSET_REGISTRY_ADDRESS,
-      connectedAddress,
-      total,
-      chainId: publicClient?.chain?.id,
-    });
+    try {
+      const balance = await contract.read.balanceOf([connectedAddress as Address]);
+      const total = Number(balance);
 
-    if (total === 0) {
-      setMyAssets([]);
+      console.debug("[MyHoldings] updateMyAssets", {
+        contractAddress: ASSET_REGISTRY_ADDRESS,
+        connectedAddress,
+        total,
+        chainId: publicClient?.chain?.id,
+      });
+
+      if (total === 0) {
+        setMyAssets([]);
+        return;
+      }
+
+      const tokenIds = (await Promise.all(
+        Array.from({ length: total }, (_, index) =>
+          contract.read.tokenOfOwnerByIndex([connectedAddress as Address, BigInt(index)]),
+        ),
+      )) as bigint[];
+
+      console.debug("[MyHoldings] tokenIds fetched", tokenIds.map((id: bigint) => id.toString()));
+
+      const assets: Array<Asset | null> = await Promise.all(
+        tokenIds.map(async (tokenId: bigint) => {
+          try {
+            const asset = (await contract.read.getAsset([tokenId])) as {
+              name: string;
+              assetType: string;
+              valuation: bigint;
+            };
+            return {
+              id: Number(tokenId),
+              name: asset.name,
+              assetType: asset.assetType,
+              valuation: Number(asset.valuation),
+            };
+          } catch (error) {
+            console.error("[MyHoldings] getAsset failed", tokenId.toString(), error);
+            return null;
+          }
+        }),
+      );
+
+      const validAssets = assets.filter((asset): asset is Asset => asset !== null);
+      validAssets.sort((a, b) => a.id - b.id);
+      setMyAssets(validAssets);
+    } catch (error) {
+      console.error("[MyHoldings] updateMyAssets failed", error);
+    } finally {
       setAllCollectiblesLoading(false);
-      return;
     }
+  }, [contract, connectedAddress, publicClient?.chain?.id]);
 
-    const tokenIds = (await Promise.all(
-      Array.from({ length: total }, (_, index) =>
-        contract.read.tokenOfOwnerByIndex([connectedAddress as Address, BigInt(index)]),
-      ),
-    )) as bigint[];
-
-    console.debug("[MyHoldings] tokenIds fetched", tokenIds.map((id: bigint) => id.toString()));
-
-    const assets: Array<Asset | null> = await Promise.all(
-      tokenIds.map(async (tokenId: bigint) => {
-        try {
-          const asset = (await contract.read.getAsset([tokenId])) as {
-            name: string;
-            assetType: string;
-            valuation: bigint;
-          };
-          return {
-            id: Number(tokenId),
-            name: asset.name,
-            assetType: asset.assetType,
-            valuation: Number(asset.valuation),
-          };
-        } catch (error) {
-          console.error("[MyHoldings] getAsset failed", tokenId.toString(), error);
-          return null;
-        }
-      }),
-    );
-
-    const validAssets = assets.filter((asset): asset is Asset => asset !== null);
-    validAssets.sort((a, b) => a.id - b.id);
-    setMyAssets(validAssets);
-    setAllCollectiblesLoading(false);
-  };
-
-  const fetchAssetHistory = async () => {
+  const fetchAssetHistory = useCallback(async () => {
     if (!publicClient || !connectedAddress) return;
 
     try {
-      const events = await publicClient.getContractEvents({
+      const transferEvent = parseAbiItem(
+        "event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)",
+      );
+
+      const logs = await publicClient.getLogs({
         address: ASSET_REGISTRY_ADDRESS,
-        abi: assetRegistryContractConfig.abi,
-        eventName: "Transfer",
+        fromBlock: 0n,
+        event: transferEvent,
       });
 
-      console.debug("[MyHoldings] fetched transfer events", {
+      console.debug("[MyHoldings] fetched transfer logs", {
         contractAddress: ASSET_REGISTRY_ADDRESS,
         connectedAddress,
-        eventCount: events.length,
+        logCount: logs.length,
       });
 
       const historyMap: Record<number, Array<{ from: string; to: string }>> = {};
+      const lowerAddress = connectedAddress.toLowerCase();
 
-      events
-        .filter((event) => {
-          const args = event.args as { from: string; to: string; tokenId: bigint };
-          const lowerAddress = connectedAddress.toLowerCase();
-          return args.from.toLowerCase() === lowerAddress || args.to.toLowerCase() === lowerAddress;
-        })
-        .forEach((event) => {
-          const args = event.args as { from: string; to: string; tokenId: bigint };
-          const tokenId = Number(args.tokenId);
-
-          if (!historyMap[tokenId]) {
-            historyMap[tokenId] = [];
-          }
-
-          historyMap[tokenId].push({
+      logs
+        .map(log => {
+          const args = log.args as { from: string; to: string; tokenId: bigint };
+          return {
+            tokenId: Number(args.tokenId),
             from: args.from,
             to: args.to,
+          };
+        })
+        .filter(event => event.from.toLowerCase() === lowerAddress || event.to.toLowerCase() === lowerAddress)
+        .forEach(event => {
+          if (!historyMap[event.tokenId]) {
+            historyMap[event.tokenId] = [];
+          }
+
+          historyMap[event.tokenId].push({
+            from: event.from,
+            to: event.to,
           });
         });
 
@@ -172,7 +178,7 @@ export const MyHoldings = () => {
     } catch (e) {
       console.error("[MyHoldings] fetchAssetHistory failed", e);
     }
-  };
+  }, [publicClient, connectedAddress]);
 
   useEffect(() => {
     if (publicClient?.chain?.id && publicClient.chain.id !== 11155111) {
@@ -181,7 +187,7 @@ export const MyHoldings = () => {
 
     updateMyAssets();
     fetchAssetHistory();
-  }, [connectedAddress, myTotalBalance, publicClient, contract]);
+  }, [connectedAddress, publicClient, contract, updateMyAssets, fetchAssetHistory]);
 
   if (allCollectiblesLoading)
     return (
@@ -219,12 +225,32 @@ export const MyHoldings = () => {
                 <p className="font-semibold text-sm">History:</p>
 
                 {assetHistory[asset.id]?.length ? (
-                  assetHistory[asset.id].map((event, idx) => (
-                    <div key={`${asset.id}-${idx}`} className="text-xs opacity-70">
-                      {event.from === "0x0000000000000000000000000000000000000000" ? "Minted" : "Transferred"} →{" "}
-                      {event.to.slice(0, 6)}...{event.to.slice(-4)}
-                    </div>
-                  ))
+                  <div className="overflow-x-auto mt-2">
+                    <table className="min-w-full text-xs border-collapse">
+                      <thead>
+                        <tr>
+                          <th className="text-left text-slate-300 pb-2">From</th>
+                          <th className="text-left text-slate-300 pb-2">To</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {assetHistory[asset.id].map((event, idx) => (
+                          <tr key={`${asset.id}-${idx}`}>
+                            <td className="pr-2 py-1 opacity-80">
+                              {event.from === "0x0000000000000000000000000000000000000000"
+                                ? "Minted"
+                                : `${event.from.slice(0, 6)}...${event.from.slice(-4)}`}
+                            </td>
+                            <td className="py-1 opacity-80">
+                              {event.to === "0x0000000000000000000000000000000000000000"
+                                ? "Burned"
+                                : `${event.to.slice(0, 6)}...${event.to.slice(-4)}`}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 ) : (
                   <p className="text-xs opacity-50">No history</p>
                 )}
