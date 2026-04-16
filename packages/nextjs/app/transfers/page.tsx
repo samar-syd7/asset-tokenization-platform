@@ -51,9 +51,7 @@ const Transfers = () => {
 
       setTransferEvents(prev => {
         const merged = [...newTransfers, ...prev];
-        const unique = Array.from(
-          new Map(merged.map(t => [dedupeKey(t), t])).values(),
-        );
+        const unique = Array.from(new Map(merged.map(t => [dedupeKey(t), t])).values());
         return unique.sort((a, b) => Number(b.blockNumber - a.blockNumber));
       });
     },
@@ -124,73 +122,87 @@ const Transfers = () => {
     );
 
   return (
-    <div className="flex flex-col items-center pt-10 px-5">
-      <div className="w-full max-w-5xl text-center mb-8">
-        <h1 className="text-4xl font-bold">Transfer History</h1>
-        <p className="mt-2 text-slate-500">
-          Track your asset transfers and ownership changes on-chain.
-        </p>
-      </div>
+    <div className="bg-slate-950 px-4 py-16 text-white sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-6xl">
+        <div className="rounded-[2rem] border border-white/10 bg-slate-900/80 p-8 shadow-2xl shadow-slate-950/40 backdrop-blur-xl transition-all duration-300 hover:shadow-xl">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-sm uppercase tracking-[0.35em] text-cyan-300">Transfer History</p>
+              <h1 className="mt-3 text-4xl font-semibold text-white">Recent asset movements</h1>
+              <p className="mt-3 max-w-2xl text-slate-400">
+                A high-end ledger view for sent and received transfers, updated instantly as events arrive.
+              </p>
+            </div>
+            <div className="rounded-3xl border border-white/10 bg-slate-950/75 px-5 py-4 text-sm text-slate-300 shadow-lg shadow-slate-950/10">
+              <p className="uppercase tracking-[0.35em] text-slate-500">Wallet</p>
+              <p className="mt-2 font-semibold text-white">{shortAddress(address)}</p>
+            </div>
+          </div>
 
-      <div className="overflow-x-auto w-full max-w-5xl shadow-lg">
-        <table className="table table-zebra w-full">
-          <thead>
-            <tr className="text-base-content">
-              <th className="bg-primary">Token Id</th>
-              <th className="bg-primary">Block</th>
-              <th className="bg-primary">From</th>
-              <th className="bg-primary">To</th>
-              <th className="bg-primary">Tx</th>
-            </tr>
-          </thead>
-
-          <tbody>
+          <div className="mt-8 space-y-4">
             {isLoading ? (
-              <tr>
-                <td colSpan={5} className="text-center py-6">
-                  <span className="loading loading-spinner loading-xl"></span>
-                </td>
-              </tr>
+              <div className="grid gap-4">
+                {Array.from({ length: 3 }).map((_, index) => (
+                  <div key={index} className="h-32 rounded-3xl bg-slate-950/80 p-5 shadow-md shadow-slate-950/10 animate-pulse" />
+                ))}
+              </div>
             ) : transferEvents.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="text-center py-6">
-                  No transfers yet
-                </td>
-              </tr>
+              <div className="rounded-3xl border border-dashed border-slate-700 bg-slate-950/70 p-10 text-center text-slate-400">
+                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-3xl bg-slate-900 text-cyan-300">
+                  <span className="text-2xl">↺</span>
+                </div>
+                <p className="text-lg font-semibold text-white">No transfers yet</p>
+                <p className="mt-2 text-slate-500">Once you move assets, your activity will appear here in real time.</p>
+              </div>
             ) : (
-              transferEvents.map((event, index) => (
-                <tr key={`${event.transactionHash}-${event.logIndex}-${index}`}>
-                  <th className="text-center">{event.tokenId}</th>
-                  <td className="text-center">{event.blockNumber.toString()}</td>
-                  <td>
-                    <span>{shortAddress(event.from)}</span>
-                  </td>
-                  <td>
-                    <a
-                      className="link"
-                      href={publicClient?.chain ? getBlockExplorerAddressLink(publicClient.chain, event.to) : undefined}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      {shortAddress(event.to)}
-                    </a>
-                  </td>
-                  <td>
-                    <a
-                      className="link link-hover"
-                      href={publicClient?.chain ? getBlockExplorerTxLink(publicClient.chain.id, event.transactionHash) : undefined}
-                      title={event.transactionHash}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      {shortAddress(event.transactionHash)}
-                    </a>
-                  </td>
-                </tr>
-              ))
+              transferEvents.map((event, index) => {
+                const isSent = event.from.toLowerCase() === address.toLowerCase();
+                return (
+                  <div
+                    key={`${event.transactionHash}-${event.logIndex}-${index}`}
+                    className="rounded-3xl border border-white/10 bg-slate-950/90 p-6 shadow-lg shadow-slate-950/10 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl"
+                  >
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <span className="rounded-full bg-slate-800 px-3 py-1 text-xs uppercase tracking-[0.3em] text-slate-400">Token #{event.tokenId}</span>
+                          <span className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.3em] ${isSent ? "bg-rose-500/15 text-rose-300" : "bg-emerald-500/15 text-emerald-300"}`}>
+                            {isSent ? "Sent" : "Received"}
+                          </span>
+                        </div>
+                        <p className="text-sm text-slate-400">Block {event.blockNumber.toString()}</p>
+                      </div>
+                      <div className="rounded-3xl bg-slate-900/80 px-4 py-2 text-sm text-slate-300">
+                        {isSent ? "Outgoing" : "Incoming"}
+                      </div>
+                    </div>
+                    <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                      <div className="rounded-3xl bg-slate-900/80 p-4">
+                        <p className="text-xs uppercase tracking-[0.3em] text-slate-500">From</p>
+                        <p className="mt-2 font-medium text-white">{shortAddress(event.from)}</p>
+                      </div>
+                      <div className="rounded-3xl bg-slate-900/80 p-4">
+                        <p className="text-xs uppercase tracking-[0.3em] text-slate-500">To</p>
+                        <p className="mt-2 font-medium text-white">{shortAddress(event.to)}</p>
+                      </div>
+                    </div>
+                    <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between text-sm text-slate-400">
+                      <span>Tx hash: {shortAddress(event.transactionHash)}</span>
+                      <a
+                        className="text-cyan-300 hover:text-cyan-200"
+                        href={publicClient?.chain ? getBlockExplorerTxLink(publicClient.chain.id, event.transactionHash) : undefined}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        View on explorer
+                      </a>
+                    </div>
+                  </div>
+                );
+              })
             )}
-          </tbody>
-        </table>
+          </div>
+        </div>
       </div>
     </div>
   );

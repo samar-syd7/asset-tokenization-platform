@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useRef } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Bars3Icon } from "@heroicons/react/24/outline";
@@ -19,7 +18,7 @@ type HeaderMenuLink = {
 
 export const menuLinks: HeaderMenuLink[] = [
   {
-    label: "Home",
+    label: "Dashboard",
     href: "/",
   },
   {
@@ -45,10 +44,11 @@ export const HeaderMenuLinks = () => {
           <li key={href}>
             <Link
               href={href}
-              passHref
-              className={`${
-                isActive ? "bg-secondary shadow-md" : ""
-              } hover:bg-secondary hover:shadow-md focus:!bg-secondary active:!text-neutral py-1.5 px-3 text-sm rounded-full gap-2 grid grid-flow-col`}
+              className={`group inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm transition-all duration-300 ${
+                isActive
+                  ? "bg-cyan-500/15 text-cyan-200 shadow-lg shadow-cyan-500/10"
+                  : "text-slate-300 hover:bg-white/5 hover:text-white"
+              }`}
             >
               {icon}
               <span>{label}</span>
@@ -60,9 +60,6 @@ export const HeaderMenuLinks = () => {
   );
 };
 
-/**
- * Site header
- */
 export const Header = () => {
   useTargetNetwork();
 
@@ -72,44 +69,41 @@ export const Header = () => {
   });
 
   return (
-    <div className="sticky lg:static top-0 navbar bg-base-100 min-h-0 shrink-0 justify-between z-20 shadow-md shadow-secondary px-0 sm:px-2">
-      <div className="navbar-start w-auto lg:w-1/2">
-        <details className="dropdown" ref={burgerMenuRef}>
-          <summary className="ml-1 btn btn-ghost lg:hidden hover:bg-transparent">
-            <Bars3Icon className="h-1/2" />
+    <header className="sticky top-0 z-30 border-b border-white/10 bg-slate-950/95 backdrop-blur-xl shadow-xl shadow-slate-950/10">
+      <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4">
+        <div className="flex items-center gap-4">
+          <Link href="/" className="inline-flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-3xl bg-cyan-500/10 ring-1 ring-cyan-200/10 text-cyan-300 shadow-lg shadow-cyan-500/10">
+              <span className="text-xl font-semibold">AR</span>
+            </div>
+            <div>
+              <p className="text-lg font-semibold text-white">Asset Registry</p>
+              <p className="text-sm text-slate-500">Real-world ownership</p>
+            </div>
+          </Link>
+        </div>
+
+        <nav className="hidden md:flex items-center gap-2">
+          <HeaderMenuLinks />
+        </nav>
+
+        <div className="flex items-center gap-3">
+          <SwitchTheme className="scale-90 opacity-80 hover:opacity-100" />
+          <ConnectButton showBalance={false} chainStatus="icon" />
+        </div>
+
+        <details className="dropdown dropdown-end md:hidden" ref={burgerMenuRef}>
+          <summary className="btn btn-ghost btn-square">
+            <Bars3Icon className="h-5 w-5 text-slate-200" />
           </summary>
           <ul
-            className="menu menu-compact dropdown-content mt-3 p-2 shadow-sm bg-base-100 rounded-box w-52"
-            onClick={() => {
-              burgerMenuRef?.current?.removeAttribute("open");
-            }}
+            className="dropdown-content mt-2 w-56 rounded-3xl border border-white/10 bg-slate-950/95 p-4 shadow-xl shadow-slate-950/20 backdrop-blur-xl"
+            onClick={() => burgerMenuRef?.current?.removeAttribute("open")}
           >
             <HeaderMenuLinks />
           </ul>
         </details>
-        <Link href="/" passHref className="hidden lg:flex items-center gap-2 ml-4 mr-6 shrink-0">
-          <div className="flex relative w-10 h-10">
-            <Image
-              alt="Asset Registry logo"
-              className="cursor-pointer"
-              fill
-              src="/ChatGPT Image Apr 14, 2026, 11_55_50 AM.png"
-            />
-          </div>
-          <div className="flex flex-col leading-tight">
-            <span className="font-bold leading-tight">Asset Registry</span>
-            <span className="text-xs">On-chain asset ownership</span>
-            <span className="text-xs opacity-70">Real-world asset registry</span>
-          </div>
-        </Link>
-        <ul className="hidden lg:flex lg:flex-nowrap menu menu-horizontal px-1 gap-2">
-          <HeaderMenuLinks />
-        </ul>
       </div>
-      <div className="navbar-end grow mr-4 flex items-center gap-2">
-        <SwitchTheme className="scale-90 opacity-80 hover:opacity-100" />
-        <ConnectButton />
-      </div>
-    </div>
+    </header>
   );
 };
