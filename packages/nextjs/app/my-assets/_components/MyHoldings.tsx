@@ -80,16 +80,30 @@ export const MyHoldings = () => {
         args: [connectedAddress as Address, to as Address, BigInt(tokenId)],
       })) as { wait?: () => Promise<any> } | string | undefined;
 
-      if (typeof txResult === "object" && typeof (txResult as { wait?: unknown }).wait === "function") {
-        await (txResult as { wait: () => Promise<any> }).wait();
-      } else if (typeof txResult === "string") {
-        await publicClient.waitForTransactionReceipt({ hash: txResult as `0x${string}` });
+      const previousAssets = myAssets;
+      const removedAsset = myAssets.find(asset => asset.id === tokenId);
+      if (removedAsset) {
+        setMyAssets(prev => prev.filter(asset => asset.id !== tokenId));
       }
+      toast.success("Asset transfer submitted");
 
-      toast.success("Asset transferred");
-      const updatedAssets = await updateMyAssets();
-      console.debug("[MyHoldings] tokenIds after transfer", updatedAssets?.map(asset => asset.id));
-      await fetchAssetHistory();
+      (async () => {
+        try {
+          if (typeof txResult === "object" && typeof (txResult as { wait?: unknown }).wait === "function") {
+            await (txResult as { wait: () => Promise<any> }).wait();
+          } else if (typeof txResult === "string") {
+            await publicClient.waitForTransactionReceipt({ hash: txResult as `0x${string}` });
+          }
+
+          const updatedAssets = await updateMyAssets(true);
+          console.debug("[MyHoldings] tokenIds after transfer", updatedAssets?.map(asset => asset.id));
+          await fetchAssetHistory();
+        } catch (confirmError) {
+          console.error("[MyHoldings] transfer confirmation failed", confirmError);
+          setMyAssets(previousAssets);
+          toast.error("Transfer failed. Restoring your assets.");
+        }
+      })();
     } catch (e: any) {
       if (e?.message?.includes("User rejected")) {
         toast.error("Transaction cancelled");
@@ -100,7 +114,7 @@ export const MyHoldings = () => {
     }
   };
 
-  const updateMyAssets = useCallback(async (): Promise<Asset[] | undefined> => {
+  const updateMyAssets = useCallback(async (silent = false): Promise<Asset[] | undefined> => {
     if (!publicClient || !connectedAddress) return;
 
     const freshContract = getContract({
@@ -109,7 +123,9 @@ export const MyHoldings = () => {
       client: publicClient,
     });
 
-    setAllCollectiblesLoading(true);
+    if (!silent) {
+      setAllCollectiblesLoading(true);
+    }
 
     try {
       const balance = await freshContract.read.balanceOf([connectedAddress as Address]);
@@ -163,7 +179,9 @@ export const MyHoldings = () => {
     } catch (error) {
       console.error("[MyHoldings] updateMyAssets failed", error);
     } finally {
-      setAllCollectiblesLoading(false);
+      if (!silent) {
+        setAllCollectiblesLoading(false);
+      }
     }
   }, [connectedAddress, publicClient]);
 
