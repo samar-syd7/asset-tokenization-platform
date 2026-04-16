@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useAccount, useContractRead, usePublicClient, useWriteContract } from "wagmi";
+import { useEffect, useMemo, useState } from "react";
+import { useAccount, usePublicClient, useReadContract, useWriteContract } from "wagmi";
 import { toast } from "react-hot-toast";
+import { getContract, Address } from "viem";
 import { ASSET_REGISTRY_ADDRESS, assetRegistryContractConfig } from "~~/utils/web3/assetRegistry";
-import { Address } from "viem";
 
 type Asset = {
   id: number;
@@ -16,17 +16,27 @@ type Asset = {
 export const MyHoldings = () => {
   const { address: connectedAddress } = useAccount();
   const publicClient = usePublicClient();
+  const contract = useMemo(() => {
+    if (!publicClient) return null;
+    return getContract({
+      address: ASSET_REGISTRY_ADDRESS,
+      abi: assetRegistryContractConfig.abi,
+      client: publicClient,
+    });
+  }, [publicClient]);
+
   const [myAssets, setMyAssets] = useState<Asset[]>([]);
   const [allCollectiblesLoading, setAllCollectiblesLoading] = useState(false);
   const [assetHistory, setAssetHistory] = useState<Record<number, any[]>>({});
 
-  const { data: myTotalBalance } = useContractRead({
+  const { data: myTotalBalance } = useReadContract({
     address: ASSET_REGISTRY_ADDRESS,
     abi: assetRegistryContractConfig.abi,
     functionName: "balanceOf",
     args: connectedAddress ? [connectedAddress as Address] : undefined,
-    enabled: Boolean(connectedAddress),
-    watch: true,
+    query: {
+      enabled: Boolean(connectedAddress),
+    },
   }) as { data?: bigint };
 
   const { writeContractAsync } = useWriteContract();
@@ -46,7 +56,7 @@ export const MyHoldings = () => {
     try {
       await writeContractAsync({
         address: ASSET_REGISTRY_ADDRESS,
-        abi: AssetRegistryABI,
+        abi: assetRegistryContractConfig.abi,
         functionName: "transferAsset",
         args: [connectedAddress as Address, to as Address, BigInt(tokenId)],
       });
@@ -62,85 +72,116 @@ export const MyHoldings = () => {
       } else {
         toast.error("Transfer failed");
       }
+      return;
     }
   };
 
   const updateMyAssets = async (): Promise<void> => {
-    if (!publicClient || !connectedAddress || myTotalBalance === undefined) return;
+    if (!contract || !connectedAddress || myTotalBalance === undefined) return;
 
     setAllCollectiblesLoading(true);
-
-    const assets: Asset[] = [];
     const total = Number(myTotalBalance);
 
-    for (let i = 0; i < total; i++) {
-      try {
-        const tokenId = (await publicClient.readContract({
-          address: ASSET_REGISTRY_ADDRESS,
-          abi: AssetRegistryABI,
-          functionName: "tokenOfOwnerByIndex",
-          args: [connectedAddress as Address, BigInt(i)],
-        })) as bigint;
+    console.debug("[MyHoldings] updateMyAssets", {
+      contractAddress: ASSET_REGISTRY_ADDRESS,
+      connectedAddress,
+      total,
+      chainId: publicClient?.chain?.id,
+    });
 
-        const asset = (await publicClient.readContract({
-          address: ASSET_REGISTRY_ADDRESS,
-          abi: AssetRegistryABI,
-          functionName: "getAsset",
-          args: [tokenId],
-        })) as { name: string; assetType: string; valuation: bigint };
-
-        assets.push({
-          id: Number(tokenId),
-          name: asset.name,
-          assetType: asset.assetType,
-          valuation: Number(asset.valuation),
-        });
-      } catch (e) {
-        console.warn("Asset fetch failed (non-critical)", e);
-      }
+    if (total === 0) {
+      setMyAssets([]);
+      setAllCollectiblesLoading(false);
+      return;
     }
 
-    assets.sort((a, b) => a.id - b.id);
-    setMyAssets(assets);
+    const tokenIds = (await Promise.all(
+      Array.from({ length: total }, (_, index) =>
+        contract.read.tokenOfOwnerByIndex([connectedAddress as Address, BigInt(index)]),
+      ),
+    )) as bigint[];
+
+    console.debug("[MyHoldings] tokenIds fetched", tokenIds.map((id: bigint) => id.toString()));
+
+    const assets: Array<Asset | null> = await Promise.all(
+      tokenIds.map(async (tokenId: bigint) => {
+        try {
+          const asset = (await contract.read.getAsset([tokenId])) as {
+            name: string;
+            assetType: string;
+            valuation: bigint;
+          };
+          return {
+            id: Number(tokenId),
+            name: asset.name,
+            assetType: asset.assetType,
+            valuation: Number(asset.valuation),
+          };
+        } catch (error) {
+          console.error("[MyHoldings] getAsset failed", tokenId.toString(), error);
+          return null;
+        }
+      }),
+    );
+
+    const validAssets = assets.filter((asset): asset is Asset => asset !== null);
+    validAssets.sort((a, b) => a.id - b.id);
+    setMyAssets(validAssets);
     setAllCollectiblesLoading(false);
   };
 
   const fetchAssetHistory = async () => {
-    if (!publicClient) return;
+    if (!publicClient || !connectedAddress) return;
 
     try {
-      const events = await publicClient.getLogs({
+      const events = await publicClient.getContractEvents({
         address: ASSET_REGISTRY_ADDRESS,
-        abi: AssetRegistryABI,
+        abi: assetRegistryContractConfig.abi,
         eventName: "Transfer",
       });
 
-      const historyMap: Record<number, any[]> = {};
-
-      events.forEach(event => {
-        const args = event.args as { from: string; to: string; tokenId: bigint };
-        const tokenId = Number(args.tokenId);
-
-        if (!historyMap[tokenId]) {
-          historyMap[tokenId] = [];
-        }
-
-        historyMap[tokenId].push({
-          from: args.from,
-          to: args.to,
-        });
+      console.debug("[MyHoldings] fetched transfer events", {
+        contractAddress: ASSET_REGISTRY_ADDRESS,
+        connectedAddress,
+        eventCount: events.length,
       });
+
+      const historyMap: Record<number, Array<{ from: string; to: string }>> = {};
+
+      events
+        .filter((event) => {
+          const args = event.args as { from: string; to: string; tokenId: bigint };
+          const lowerAddress = connectedAddress.toLowerCase();
+          return args.from.toLowerCase() === lowerAddress || args.to.toLowerCase() === lowerAddress;
+        })
+        .forEach((event) => {
+          const args = event.args as { from: string; to: string; tokenId: bigint };
+          const tokenId = Number(args.tokenId);
+
+          if (!historyMap[tokenId]) {
+            historyMap[tokenId] = [];
+          }
+
+          historyMap[tokenId].push({
+            from: args.from,
+            to: args.to,
+          });
+        });
 
       setAssetHistory(historyMap);
     } catch (e) {
-      console.error(e);
+      console.error("[MyHoldings] fetchAssetHistory failed", e);
     }
   };
 
   useEffect(() => {
+    if (publicClient?.chain?.id && publicClient.chain.id !== 11155111) {
+      console.warn("[MyHoldings] expected Sepolia chainId 11155111, got", publicClient.chain.id);
+    }
+
     updateMyAssets();
     fetchAssetHistory();
-  }, [connectedAddress, myTotalBalance, publicClient]);
+  }, [connectedAddress, myTotalBalance, publicClient, contract]);
 
   if (allCollectiblesLoading)
     return (

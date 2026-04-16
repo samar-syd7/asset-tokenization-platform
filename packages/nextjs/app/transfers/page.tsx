@@ -1,11 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { decodeEventLog, getEventSelector } from "viem";
+import { decodeEventLog } from "viem";
 import type { Abi } from "abitype";
 import { useAccount, usePublicClient } from "wagmi";
-import AssetRegistryArtifact from "../../../hardhat/deployments/sepolia/AssetRegistry.json";
-import { ASSET_REGISTRY_ADDRESS } from "~~/utils/web3/assetRegistry";
+import { ASSET_REGISTRY_ADDRESS, assetRegistryContractConfig } from "~~/utils/web3/assetRegistry";
 import { getBlockExplorerAddressLink } from "~~/utils/web3/networks";
 
 type TransferEvent = {
@@ -20,7 +19,7 @@ type TransferEvent = {
 };
 
 const shortAddress = (address: string) => `${address.slice(0, 6)}...${address.slice(-4)}`;
-const assetRegistryAbi = AssetRegistryArtifact.abi as Abi;
+const assetRegistryAbi = assetRegistryContractConfig.abi as Abi;
 
 const Transfers = () => {
   const { address } = useAccount();
@@ -34,25 +33,17 @@ const Transfers = () => {
     const fetchTransfers = async () => {
       setIsLoading(true);
       try {
-        const transferTopic = getEventSelector("Transfer(address,address,uint256)");
-        const logs = await publicClient.getLogs({
+        const logs = await publicClient.getContractEvents({
           address: ASSET_REGISTRY_ADDRESS,
+          abi: assetRegistryAbi,
+          eventName: "Transfer",
         });
 
         const decodedEvents = logs
-          .filter(log => log.topics?.[0] === transferTopic)
-          .map(log => {
-            const decoded = decodeEventLog({
-              abi: assetRegistryAbi,
-              data: log.data,
-              topics: log.topics,
-              eventName: "Transfer",
-            });
-            return {
-              ...log,
-              args: decoded.args as unknown as { from: string; to: string; tokenId: bigint },
-            };
-          })
+          .map(log => ({
+            ...log,
+            args: log.args as { from: string; to: string; tokenId: bigint },
+          }))
           .filter(event => {
             const args = event.args;
             const lowerAddress = address.toLowerCase();

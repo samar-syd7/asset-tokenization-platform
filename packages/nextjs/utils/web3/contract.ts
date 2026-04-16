@@ -12,8 +12,6 @@ import {
   ExtractAbiFunction,
 } from "abitype";
 import type { ExtractAbiFunctionNames } from "abitype";
-import type { Simplify } from "type-fest";
-import type { MergeDeepRecord } from "type-fest/source/merge-deep";
 import {
   Address,
   Block,
@@ -38,6 +36,14 @@ type AddExternalFlag<T> = {
     [ContractName in keyof T[ChainId]]: T[ChainId][ContractName] & { external?: true };
   };
 };
+
+type Simplify<T> = T extends object ? { [K in keyof T]: T[K] } : T;
+
+type MergeDeepRecord<T, U, O = unknown> = T & U;
+
+// type Simplify<T> = T extends object ? { [K in keyof T]: T[K] } : T;
+
+// type MergeDeepRecord<T, U, O = unknown> = T & U;
 
 const deepMergeContracts = <L extends Record<PropertyKey, any>, E extends Record<PropertyKey, any>>(
   local: L,
@@ -422,3 +428,5 @@ export const simulateContractWriteAndNotifyError = async ({
     throw error;
   }
 };
+
+export { ASSET_REGISTRY_ADDRESS, assetRegistryContractConfig } from "./assetRegistry";

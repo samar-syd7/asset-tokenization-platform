@@ -1,3 +1,4 @@
+import type { Abi } from "abitype";
 import AssetRegistryArtifact from "../../../hardhat/deployments/sepolia/AssetRegistry.json";
 
 export const ASSET_REGISTRY_ADDRESS =
@@ -6,5 +7,5 @@ export const ASSET_REGISTRY_ADDRESS =
 
 export const assetRegistryContractConfig = {
   address: ASSET_REGISTRY_ADDRESS,
-  abi: AssetRegistryArtifact.abi,
+  abi: AssetRegistryArtifact.abi as Abi,
 } as const;
