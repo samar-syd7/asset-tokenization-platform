@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useAccount, usePublicClient, useWriteContract } from "wagmi";
+import { useAccount, usePublicClient, useReadContract, useWriteContract } from "wagmi";
 import { toast } from "react-hot-toast";
 import { getContract, parseAbiItem, Address } from "viem";
 import { ASSET_REGISTRY_ADDRESS, assetRegistryContractConfig } from "~~/utils/web3/assetRegistry";
@@ -29,6 +29,16 @@ export const MyHoldings = () => {
   const [allCollectiblesLoading, setAllCollectiblesLoading] = useState(false);
   const [assetHistory, setAssetHistory] = useState<Record<number, any[]>>({});
 
+  const { data: myTotalBalance } = useReadContract({
+    address: ASSET_REGISTRY_ADDRESS,
+    abi: assetRegistryContractConfig.abi,
+    functionName: "balanceOf",
+    args: connectedAddress ? [connectedAddress as Address] : undefined,
+    query: {
+      enabled: Boolean(connectedAddress),
+    },
+  }) as { data?: bigint };
+
   const { writeContractAsync } = useWriteContract();
 
   const handleTransfer = async (tokenId: number) => {
@@ -44,6 +54,25 @@ export const MyHoldings = () => {
     }
 
     try {
+      if (!publicClient) {
+        toast.error("Unable to access public client");
+        return;
+      }
+
+      const transferContract = getContract({
+        address: ASSET_REGISTRY_ADDRESS,
+        abi: assetRegistryContractConfig.abi,
+        client: publicClient,
+      });
+
+      const tokenIdsBefore = (await Promise.all(
+        Array.from({ length: Number(myTotalBalance || 0n) }, (_, index) =>
+          transferContract.read.tokenOfOwnerByIndex([connectedAddress as Address, BigInt(index)]),
+        ),
+      )) as bigint[];
+
+      console.debug("[MyHoldings] tokenIds before transfer", tokenIdsBefore.map(id => id.toString()));
+
       const txResult = (await writeContractAsync({
         address: ASSET_REGISTRY_ADDRESS,
         abi: assetRegistryContractConfig.abi,
@@ -53,12 +82,13 @@ export const MyHoldings = () => {
 
       if (typeof txResult === "object" && typeof (txResult as { wait?: unknown }).wait === "function") {
         await (txResult as { wait: () => Promise<any> }).wait();
-      } else if (typeof txResult === "string" && publicClient) {
+      } else if (typeof txResult === "string") {
         await publicClient.waitForTransactionReceipt({ hash: txResult as `0x${string}` });
       }
 
       toast.success("Asset transferred");
-      await updateMyAssets();
+      const updatedAssets = await updateMyAssets();
+      console.debug("[MyHoldings] tokenIds after transfer", updatedAssets?.map(asset => asset.id));
       await fetchAssetHistory();
     } catch (e: any) {
       if (e?.message?.includes("User rejected")) {
@@ -70,13 +100,19 @@ export const MyHoldings = () => {
     }
   };
 
-  const updateMyAssets = useCallback(async (): Promise<void> => {
-    if (!contract || !connectedAddress) return;
+  const updateMyAssets = useCallback(async (): Promise<Asset[] | undefined> => {
+    if (!publicClient || !connectedAddress) return;
+
+    const freshContract = getContract({
+      address: ASSET_REGISTRY_ADDRESS,
+      abi: assetRegistryContractConfig.abi,
+      client: publicClient,
+    });
 
     setAllCollectiblesLoading(true);
 
     try {
-      const balance = await contract.read.balanceOf([connectedAddress as Address]);
+      const balance = await freshContract.read.balanceOf([connectedAddress as Address]);
       const total = Number(balance);
 
       console.debug("[MyHoldings] updateMyAssets", {
@@ -93,7 +129,7 @@ export const MyHoldings = () => {
 
       const tokenIds = (await Promise.all(
         Array.from({ length: total }, (_, index) =>
-          contract.read.tokenOfOwnerByIndex([connectedAddress as Address, BigInt(index)]),
+          freshContract.read.tokenOfOwnerByIndex([connectedAddress as Address, BigInt(index)]),
         ),
       )) as bigint[];
 
@@ -102,7 +138,7 @@ export const MyHoldings = () => {
       const assets: Array<Asset | null> = await Promise.all(
         tokenIds.map(async (tokenId: bigint) => {
           try {
-            const asset = (await contract.read.getAsset([tokenId])) as {
+            const asset = (await freshContract.read.getAsset([tokenId])) as {
               name: string;
               assetType: string;
               valuation: bigint;
@@ -122,13 +158,14 @@ export const MyHoldings = () => {
 
       const validAssets = assets.filter((asset): asset is Asset => asset !== null);
       validAssets.sort((a, b) => a.id - b.id);
-      setMyAssets(validAssets);
+      setMyAssets([...validAssets]);
+      return validAssets;
     } catch (error) {
       console.error("[MyHoldings] updateMyAssets failed", error);
     } finally {
       setAllCollectiblesLoading(false);
     }
-  }, [contract, connectedAddress, publicClient?.chain?.id]);
+  }, [connectedAddress, publicClient]);
 
   const fetchAssetHistory = useCallback(async () => {
     if (!publicClient || !connectedAddress) return;
@@ -187,7 +224,7 @@ export const MyHoldings = () => {
 
     updateMyAssets();
     fetchAssetHistory();
-  }, [connectedAddress, publicClient, contract, updateMyAssets, fetchAssetHistory]);
+  }, [connectedAddress, myTotalBalance, updateMyAssets, fetchAssetHistory]);
 
   if (allCollectiblesLoading)
     return (
