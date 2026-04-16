@@ -1,25 +1,21 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { decodeEventLog } from "viem";
-import type { Abi } from "abitype";
+import { useEffect, useState } from "react";
+import { parseAbiItem } from "viem";
 import { useAccount, usePublicClient } from "wagmi";
-import { ASSET_REGISTRY_ADDRESS, assetRegistryContractConfig } from "~~/utils/web3/assetRegistry";
-import { getBlockExplorerAddressLink } from "~~/utils/web3/networks";
+import { ASSET_REGISTRY_ADDRESS } from "~~/utils/web3/assetRegistry";
+import { getBlockExplorerAddressLink, getBlockExplorerTxLink } from "~~/utils/web3/networks";
 
 type TransferEvent = {
-  args: {
-    from: string;
-    to: string;
-    tokenId: bigint;
-  };
+  tokenId: number;
+  from: string;
+  to: string;
   blockNumber: bigint;
   transactionHash: string;
   logIndex: number;
 };
 
 const shortAddress = (address: string) => `${address.slice(0, 6)}...${address.slice(-4)}`;
-const assetRegistryAbi = assetRegistryContractConfig.abi as Abi;
 
 const Transfers = () => {
   const { address } = useAccount();
@@ -33,37 +29,38 @@ const Transfers = () => {
     const fetchTransfers = async () => {
       setIsLoading(true);
       try {
-        const logs = await publicClient.getContractEvents({
+        if (publicClient.chain?.id !== 11155111) {
+          console.warn("Transfer history is only supported on Sepolia for this deployment.", publicClient.chain.id);
+        }
+
+        const transferEvent = parseAbiItem(
+          "event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)",
+        );
+
+        const logs = await publicClient.getLogs({
           address: ASSET_REGISTRY_ADDRESS,
-          abi: assetRegistryAbi,
-          eventName: "Transfer",
+          fromBlock: 0n,
+          event: transferEvent,
         });
 
-        const decodedEvents = logs
+        console.log("logs:", logs);
+
+        const transfers = logs
           .map(log => ({
-            ...log,
-            args: log.args as { from: string; to: string; tokenId: bigint },
+            tokenId: Number((log.args as { tokenId: bigint }).tokenId),
+            from: (log.args as { from: string }).from,
+            to: (log.args as { to: string }).to,
+            blockNumber: log.blockNumber,
+            transactionHash: log.transactionHash,
+            logIndex: log.logIndex,
           }))
           .filter(event => {
-            const args = event.args;
             const lowerAddress = address.toLowerCase();
-            return args.from.toLowerCase() === lowerAddress || args.to.toLowerCase() === lowerAddress;
-          });
+            return event.from.toLowerCase() === lowerAddress || event.to.toLowerCase() === lowerAddress;
+          })
+          .sort((a, b) => Number(b.blockNumber - a.blockNumber));
 
-        const uniqueEvents = Array.from(
-          new Map(decodedEvents.map(event => [`${event.transactionHash}:${event.logIndex}`, event])).values(),
-        );
-
-        setTransferEvents(
-          uniqueEvents
-            .map(event => ({
-              args: event.args,
-              blockNumber: event.blockNumber,
-              transactionHash: event.transactionHash,
-              logIndex: event.logIndex,
-            }))
-            .sort((a, b) => Number(b.blockNumber - a.blockNumber)),
-        );
+        setTransferEvents(transfers);
       } catch (error) {
         console.error("Failed to load transfer events", error);
       } finally {
@@ -73,14 +70,6 @@ const Transfers = () => {
 
     fetchTransfers();
   }, [address, publicClient]);
-
-  const blockExplorerAddressLink = useMemo(
-    () =>
-      publicClient?.chain && address
-        ? getBlockExplorerAddressLink(publicClient.chain, address)
-        : undefined,
-    [address, publicClient?.chain],
-  );
 
   if (!address)
     return (
@@ -103,8 +92,10 @@ const Transfers = () => {
           <thead>
             <tr className="text-base-content">
               <th className="bg-primary">Token Id</th>
+              <th className="bg-primary">Block</th>
               <th className="bg-primary">From</th>
               <th className="bg-primary">To</th>
+              <th className="bg-primary">Tx</th>
             </tr>
           </thead>
 
@@ -124,20 +115,30 @@ const Transfers = () => {
             ) : (
               transferEvents.map((event, index) => (
                 <tr key={`${event.transactionHash}-${event.logIndex}-${index}`}>
-                  <th className="text-center">{event.args.tokenId.toString()}</th>
+                  <th className="text-center">{event.tokenId}</th>
+                  <td className="text-center">{event.blockNumber.toString()}</td>
                   <td>
-                    <div className="flex items-center gap-2">
-                      <span>{shortAddress(event.args.from)}</span>
-                    </div>
+                    <span>{shortAddress(event.from)}</span>
                   </td>
                   <td>
                     <a
                       className="link"
-                      href={blockExplorerAddressLink}
+                      href={publicClient?.chain ? getBlockExplorerAddressLink(publicClient.chain, event.to) : undefined}
                       target="_blank"
                       rel="noreferrer"
                     >
-                      {shortAddress(event.args.to)}
+                      {shortAddress(event.to)}
+                    </a>
+                  </td>
+                  <td>
+                    <a
+                      className="link link-hover"
+                      href={publicClient?.chain ? getBlockExplorerTxLink(publicClient.chain.id, event.transactionHash) : undefined}
+                      title={event.transactionHash}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {shortAddress(event.transactionHash)}
                     </a>
                   </td>
                 </tr>
