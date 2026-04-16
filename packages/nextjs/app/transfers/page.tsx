@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { parseAbiItem } from "viem";
-import { useAccount, usePublicClient } from "wagmi";
-import { ASSET_REGISTRY_ADDRESS } from "~~/utils/web3/assetRegistry";
+import { useAccount, usePublicClient, useWatchContractEvent } from "wagmi";
+import { ASSET_REGISTRY_ADDRESS, assetRegistryContractConfig } from "~~/utils/web3/assetRegistry";
 import { getBlockExplorerAddressLink, getBlockExplorerTxLink } from "~~/utils/web3/networks";
 
 type TransferEvent = {
@@ -23,6 +23,37 @@ const Transfers = () => {
   const [transferEvents, setTransferEvents] = useState<TransferEvent[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
+  useWatchContractEvent({
+    address: ASSET_REGISTRY_ADDRESS,
+    abi: assetRegistryContractConfig.abi,
+    eventName: "Transfer",
+    onLogs(logs) {
+      console.log("New logs:", logs);
+      if (!address) return;
+
+      const lowerAddress = address.toLowerCase();
+      const newTransfers = logs
+        .map(log => {
+          const args = (log as any).args as { from: string; to: string; tokenId: bigint };
+          return {
+            tokenId: Number(args.tokenId),
+            from: args.from,
+            to: args.to,
+            blockNumber: log.blockNumber ?? 0n,
+            transactionHash: log.transactionHash ?? "",
+            logIndex: log.logIndex ?? 0,
+          };
+        })
+        .filter(event => event.from.toLowerCase() === lowerAddress || event.to.toLowerCase() === lowerAddress);
+
+      setTransferEvents(prev => {
+        const existingIds = new Set(prev.map(event => `${event.transactionHash}:${event.logIndex}`));
+        const dedupedNew = newTransfers.filter(event => !existingIds.has(`${event.transactionHash}:${event.logIndex}`));
+        return [...dedupedNew, ...prev].sort((a, b) => Number(b.blockNumber - a.blockNumber));
+      });
+    },
+  });
+
   useEffect(() => {
     if (!address || !publicClient) return;
 
@@ -38,25 +69,30 @@ const Transfers = () => {
         );
 
         console.log("address:", address, "chainId:", publicClient.chain?.id);
-        console.log("transferEvent:", transferEvent);
+
+        const currentBlock = await publicClient.getBlockNumber();
+        const fromBlock = currentBlock > 10000n ? currentBlock - 10000n : 1n;
 
         const logs = await publicClient.getLogs({
           address: ASSET_REGISTRY_ADDRESS,
-          fromBlock: 0n,
+          fromBlock,
           event: transferEvent,
         });
 
         console.log("logs:", logs);
 
         const transfers = logs
-          .map(log => ({
-            tokenId: Number((log.args as { tokenId: bigint }).tokenId),
-            from: (log.args as { from: string }).from,
-            to: (log.args as { to: string }).to,
-            blockNumber: log.blockNumber,
-            transactionHash: log.transactionHash,
-            logIndex: log.logIndex,
-          }))
+          .map(log => {
+            const args = (log as any).args as { from: string; to: string; tokenId: bigint };
+            return {
+              tokenId: Number(args.tokenId),
+              from: args.from,
+              to: args.to,
+              blockNumber: log.blockNumber ?? 0n,
+              transactionHash: log.transactionHash ?? "",
+              logIndex: log.logIndex ?? 0,
+            };
+          })
           .filter(event => {
             const lowerAddress = address.toLowerCase();
             return event.from.toLowerCase() === lowerAddress || event.to.toLowerCase() === lowerAddress;
@@ -112,7 +148,7 @@ const Transfers = () => {
             ) : transferEvents.length === 0 ? (
               <tr>
                 <td colSpan={5} className="text-center py-6">
-                  No transfers found for your wallet
+                  No transfers yet
                 </td>
               </tr>
             ) : (
