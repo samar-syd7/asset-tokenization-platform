@@ -6,13 +6,13 @@ Asset Registry enables users to register, manage, and transfer ownership of real
 
 ---
 
-## 🚀 Live Demo
+## Live Demo
 
-👉 https://asset-tokenization-platform-nextjs.vercel.app
+ https://asset-tokenization-platform-nextjs.vercel.app
 
 ---
 
-## 🧠 Problem
+## Problem
 
 Ownership of real-world assets is often:
 
@@ -25,7 +25,7 @@ There is no unified, trustless system for managing asset ownership globally.
 
 ---
 
-## 💡 Solution
+## Solution
 
 Asset Registry introduces a decentralized system where:
 
@@ -36,13 +36,13 @@ Asset Registry introduces a decentralized system where:
 
 ---
 
-## 🌍 Why This Matters
+## Why This Matters
 
 Tokenization of real-world assets is a growing sector in Web3, enabling more efficient markets, fractional ownership, and global accessibility to traditionally illiquid assets.
 
 ---
 
-## ⚙️ Architecture
+## Architecture
 
 The system follows a client–contract architecture where the frontend interacts directly with smart contracts via wagmi/viem, ensuring decentralized state management.
 
@@ -74,18 +74,18 @@ The system follows a client–contract architecture where the frontend interacts
 
 ---
 
-## 🔑 Features
+## Features
 
-- ✅ Register real-world assets on-chain  
-- ✅ Track ownership per wallet  
-- ✅ Transfer assets securely  
-- ✅ View ownership history (event-driven)  
-- ✅ Wallet integration (MetaMask + WalletConnect)  
-- ✅ Live testnet deployment (Sepolia)  
+- Register real-world assets on-chain  
+- Track ownership per wallet  
+- Transfer assets securely  
+- View ownership history (event-driven)  
+- Wallet integration (MetaMask + WalletConnect)  
+- Live testnet deployment (Sepolia)  
 
 ---
 
-## 🔄 Ownership Model
+## Ownership Model
 
 Each asset:
 
@@ -105,7 +105,7 @@ Transferred → 0x123...
 
 ---
 
-## 🧪 Tech Stack
+## Tech Stack
 
 - **Blockchain**: Ethereum (Sepolia)
 - **Smart Contracts**: Solidity + Hardhat
@@ -116,7 +116,7 @@ Transferred → 0x123...
 
 ---
 
-## 🛠️ Local Development
+## Local Development
 
 ### 1. Install dependencies
 
@@ -158,7 +158,7 @@ http://localhost:3000
 
 ---
 
-## 🌐 Environment Variables
+## Environment Variables
 
 Create:
 
@@ -175,7 +175,7 @@ NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID=your_id
 
 ---
 
-## 📈 Future Improvements
+## Future Improvements
 
 * Asset verification layer (oracle-based)
 * Role-based permissions (issuers / regulators)
@@ -185,7 +185,7 @@ NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID=your_id
 
 ---
 
-## 🧠 Key Learnings
+## Key Learnings
 
 * Designing event-driven ownership systems
 * Integrating smart contracts with modern frontend stacks
@@ -194,6 +194,6 @@ NEXT_PUBLIC_WALLET_CONNECT_PROJECT_ID=your_id
 
 ---
 
-## 📜 License
+## License
 
 MIT
